@@ -7,7 +7,6 @@ const bcrypt = require('bcryptjs');
 const rbacController = {
     create: async (request, response) => {
         try {
-            const adminUser = request.user;
             const { name, email, role } = request.body;
 
             if (!USER_ROLES.includes(role)) {
