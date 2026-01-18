@@ -15,6 +15,7 @@ const usersController = {
     updateProfile: async (request, response) => {
         try {
             const { name } = request.body;
+            const userId = request.user._id; 
 
             const updatedUser = await Users.findByIdAndUpdate(
                 userId,
