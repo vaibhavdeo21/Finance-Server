@@ -19,6 +19,7 @@ const expenseController = {
             const userRole = typeof member === 'object' ? member.role?.toLowerCase() : 'viewer';
 
             const canAddExpense =
+                userRole === 'admin' ||
                 userRole === 'manager' ||
                 userRole === 'treasurer' ||
                 group.adminEmail === userEmail;
