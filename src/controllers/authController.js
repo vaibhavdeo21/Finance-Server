@@ -7,6 +7,7 @@ const { ADMIN_ROLE } = require('../utility/userRoles');
 
 const authController = {
     login: async (request, response) => {
+        const errors = validationResult(request);
         if (!errors.isEmpty()) {
             return response.status(400).json({
                 errors: errors.array()
