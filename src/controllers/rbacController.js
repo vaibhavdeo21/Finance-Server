@@ -12,7 +12,6 @@ const rbacController = {
 
             if (!USER_ROLES.includes(role)) {
                 return response.status(400).json({
-                    message: 'Invalid role'
                 });
             }
 
