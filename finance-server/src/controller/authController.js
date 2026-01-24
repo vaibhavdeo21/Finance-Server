@@ -1,6 +1,6 @@
 // UPDATED: Import the DAO (Data Access Object)
 const userDao = require('../dao/userDao');
-
+const bcrypt = require('bcryptjs');//for encrypting passwords
 /* // OLD CODE (Source 2): Imported the in-memory array
 // const users = require('../dao/userDb');
 */
@@ -29,6 +29,7 @@ const authController = {
         // UPDATED (Source 3): Async DB call
         const user = await userDao.findByEmail(email);
 
+        const isPasswordMatched = await bcrypt.compare(password, user.password);
         // Simple text comparison for password (in real apps, use hashing!)
         if (user && user.password === password) {
             return response.status(200).json({
@@ -51,6 +52,9 @@ const authController = {
                 message: 'Name, Email, Password are required'
             });
         }
+        
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);// for encrypting the password
 
         /* // OLD CODE (Source 2): Array Check and Push
         // const user = users.find(u => u.email === email);
@@ -71,7 +75,7 @@ const authController = {
         userDao.create({
             name: name,
             email: email,
-            password: password
+            password: hashedPassword
         }).then(u => {
             return response.status(200).json({
                 message: 'User registered',
