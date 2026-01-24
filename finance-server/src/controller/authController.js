@@ -1,9 +1,36 @@
+ /* // OLD CODE (Source 2): Imported the in-memory array
+// const users = require('../dao/userDb');
+*/
+ /* // OLD CODE (Source 2): Synchronous Array Find
+        // const user = users.find(u => u.email === email && u.password === password);
+        // if (user) {
+        //     return response.status(200).json({ message: 'User authenticated', user: user });
+        // } else {
+        //     return response.status(400).json({ message: 'Invalid email or password' });
+        // }
+        */
+       
+        /* // OLD CODE (Source 2): Array Check and Push
+        // const user = users.find(u => u.email === email);
+        // if (user) {
+        //     return response.status(400).json({ message: `User already exist with email: ${email}` });
+        // }
+        // const newUser = {
+        //     id: users.length + 1,
+        //     name: name,
+        //     email: email,
+        //     password: password
+        // };
+        // users.push(newUser);
+        // return response.status(200).json({ message: 'User registered', user: { id: newUser.id } });
+        */
+
+        // UPDATED (Source 3): Use DAO to create user
+
+        
 // UPDATED: Import the DAO (Data Access Object)
 const userDao = require('../dao/userDao');
 const bcrypt = require('bcryptjs');//for encrypting passwords
-/* // OLD CODE (Source 2): Imported the in-memory array
-// const users = require('../dao/userDb');
-*/
 
 const authController = {
 
@@ -16,15 +43,6 @@ const authController = {
                 message: 'Email and Password are required'
             });
         }
-
-        /* // OLD CODE (Source 2): Synchronous Array Find
-        // const user = users.find(u => u.email === email && u.password === password);
-        // if (user) {
-        //     return response.status(200).json({ message: 'User authenticated', user: user });
-        // } else {
-        //     return response.status(400).json({ message: 'Invalid email or password' });
-        // }
-        */
 
         // UPDATED (Source 3): Async DB call
         const user = await userDao.findByEmail(email);
@@ -56,22 +74,6 @@ const authController = {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);// for encrypting the password
 
-        /* // OLD CODE (Source 2): Array Check and Push
-        // const user = users.find(u => u.email === email);
-        // if (user) {
-        //     return response.status(400).json({ message: `User already exist with email: ${email}` });
-        // }
-        // const newUser = {
-        //     id: users.length + 1,
-        //     name: name,
-        //     email: email,
-        //     password: password
-        // };
-        // users.push(newUser);
-        // return response.status(200).json({ message: 'User registered', user: { id: newUser.id } });
-        */
-
-        // UPDATED (Source 3): Use DAO to create user
         userDao.create({
             name: name,
             email: email,

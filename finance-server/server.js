@@ -10,7 +10,7 @@ app.use(express.json());
 
 // Connect to MongoDB
 // Note: The connection string is empty in the source, usually this would be process.env.MONGO_URI
-mongoose.connect("") 
+mongoose.connect("process.env.MONGO_DB_CONNECTION_URI") //we shouldn't push this connection uri or .dotenv file in github
   .then(() => console.log('MongoDB Connected'))
   .catch((error) => console.log('Error Connecting to Database:', error));
 
