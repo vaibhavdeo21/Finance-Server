@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose'); // Import Mongoose for MongoDB interaction
 const authRoutes = require('./src/routes/authRoutes'); // Import authentication routes
