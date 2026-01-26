@@ -7,7 +7,6 @@ const rbacDao = {
             password: password,
             name: name,
             role: role,
-            adminId: adminId
         });
     },
 
