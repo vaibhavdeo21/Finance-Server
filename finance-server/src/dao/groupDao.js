@@ -1,15 +1,3 @@
-/* ==========================================================================
-   VERSION 1: NO GROUP DAO
-   --------------------------------------------------------------------------
-   We didn't have any group logic in the beginning.
-   ========================================================================== */
-
-/* ==========================================================================
-   FINAL VERSION: GROUP BUTLER
-   --------------------------------------------------------------------------
-   Handles saving and updating groups in the database.
-   ========================================================================== */
-
 const Group = require("../model/group");
 
 const groupDao = {
@@ -18,37 +6,55 @@ const groupDao = {
         return await newGroup.save();
     },
 
+    // This function updates the group details (like name or description)
     updateGroup: async (data) => {
         const { groupId, name, description, thumbnail, adminEmail, paymentStatus } = data;
-        // 'new: true' means return the UPDATED group, not the old one
+        
+        /* OLD CODE:
+        // We didn't have this function fully working before
+        */
+
+        // NEW CODE:
+        // We find the group by its ID and change the details
+        // { new: true } means "Show me the new version after you change it"
         return await Group.findByIdAndUpdate(groupId, {
             name, description, thumbnail, adminEmail, paymentStatus,
         }, { new: true });
     },
 
     addMembers: async (groupId, ...membersEmails) => {
-        // $addToSet ensures we don't add the same friend twice
+        // We use $addToSet to add friends to the list. 
+        // It's smart: if the friend is already there, it won't add them again!
         return await Group.findByIdAndUpdate(groupId, {
             $addToSet: { membersEmail: { $each: membersEmails }}
         }, { new: true });
     },
 
-    removeMembers: async (...membersEmail) => {
-        // Placeholder for removing members later
+    // NEW FUNCTION: Remove a friend from the group
+    removeMembers: async (groupId, memberEmail) => {
+        // We use $pull to "pull" (remove) the specific email from the list
+        return await Group.findByIdAndUpdate(groupId, {
+            $pull: { membersEmail: memberEmail }
+        }, { new: true });
     },
 
     getGroupByEmail: async (email) => {
-        // Find all groups where this person is a member
+        // We search for all groups where this person's email is in the 'membersEmail' list
         return await Group.find({ membersEmail: email });
     },
 
+    // NEW FUNCTION: Find groups based on if they are Paid or Not Paid
     getGroupByStatus: async (status) => {
-        // Placeholder
+        // We look inside the 'paymentStatus' box to see if 'isPaid' matches what we want
+        return await Group.find({ 'paymentStatus.isPaid': status });
     },
 
+    // NEW FUNCTION: Get the history of the group
     getAuditLog: async (groupId) => {
-        // Placeholder
+        // For now, we just find the group and return its info
+        // Later, we can add a special list of "Who did what"
+        return await Group.findById(groupId);
     }
 };
 
-module.exports = groupDao; [cite_start]// [cite: 871-983]
+module.exports = groupDao;

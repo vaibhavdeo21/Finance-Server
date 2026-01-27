@@ -1,30 +1,36 @@
 const express = require('express');
 const groupController = require('../controllers/groupController');
-
-// NEW: We hire the Security Guard
 const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
-/* ==========================================================================
-   VERSION 1: OPEN DOORS (Unsafe)
-   --------------------------------------------------------------------------
-   Anyone could create a group. There was no check to see if they were logged in.
-   ========================================================================== */
-
-// // router.post('/create', groupController.create);
-
-
-/* ==========================================================================
-   FINAL VERSION: GUARDED DOORS (Safe)
-   --------------------------------------------------------------------------
-   Now we tell the Guard (authMiddleware) to protect the door.
-   Only people with a Token can pass.
-   ========================================================================== */
-
-// NEW: Protect everything below this line
+// The Security Guard protects all these routes!
 router.use(authMiddleware.protect);
 
+// 1. Create a Group
 router.post('/create', groupController.create);
+
+/* OLD CODE:
+// We only had the create route before.
+*/
+
+// NEW CODE:
+// 2. Update Group Details
+router.post('/update', groupController.updateGroup);
+
+// 3. Add Members to a Group
+router.post('/add-members', groupController.addMembers);
+
+// 4. Remove Members from a Group
+router.post('/remove-members', groupController.removeMembers);
+
+// 5. Get all my groups (We don't need to send email, the token has it!)
+router.get('/list', groupController.getGroupByEmail);
+
+// 6. Get groups by Status (e.g., /status/true or /status/false)
+router.get('/status/:isPaid', groupController.getGroupByStatus);
+
+// 7. Get Audit Log for a specific group ID
+router.get('/audit/:groupId', groupController.getAuditLog);
 
 module.exports = router;
