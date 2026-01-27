@@ -1,44 +1,24 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose'); // Import Mongoose for MongoDB interaction
-const authRoutes = require('./src/routes/authRoutes'); // Import authentication routes
+require('dotenv').config(); // Load the secret keys from the .env file immediately 
 
-const app = express();
+const express = require('express'); // Bring in the Express tool
+const mongoose = require('mongoose'); // Bring in the Mongoose tool
+const authRoutes = require('./src/routes/authRoutes'); // Bring in our list of valid website addresses (routes)
 
-// Middleware to parse JSON request bodies
+const app = express(); // Create our application (the shop)
+
+// This line lets our app understand messages sent in JSON format (like a translator)
 app.use(express.json());
 
-// Connect to MongoDB
-// Note: The connection string is empty in the source, usually this would be process.env.MONGO_URI
-mongoose.connect("process.env.MONGO_DB_CONNECTION_URI") //we shouldn't push this connection uri or .dotenv file in github
-  .then(() => console.log('MongoDB Connected'))
-  .catch((error) => console.log('Error Connecting to Database:', error));
+// Connect to the database using the secret address we stored in the .env file
+// process.env.MONGO_DB_CONNECTION_URI grabs the value from that file 
+mongoose.connect(process.env.MONGO_DB_CONNECTION_URI)
+  .then(() => console.log('MongoDB Connected')) // If successful, say "Connected"
+  .catch((error) => console.log('Error Connecting to Database:', error)); // If it fails, show the error
 
-/* // OLD CODE (Source 1): In-memory user storage
-// let users = [];
-*/
-
-// Use the auth routes for any requests to /auth
+// If anyone visits the address starting with /auth, send them to our authRoutes manager
 app.use('/auth', authRoutes);
 
-/* // OLD CODE (Source 1): Inline Register Route (Before Refactoring)
-// app.post('/register', (request, response) => {
-//     const { name, email, password } = request.body;
-//     if (!name || !email || !password) {
-//         return response.status(400).json({ message: 'Name, Email, Password are required' });
-//     }
-//     const newUser = {
-//         id: users.length + 1,
-//         name: name,
-//         email: email,
-//         password: password
-//     };
-//     users.push(newUser);
-//     return response.status(200).json({ message: 'User registered', user: { id: newUser.id } });
-// });
-*/
-
-const PORT = 5001;
+const PORT = 5001; // The specific door number our server listens on
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`); // Tell us the server is ready
 });

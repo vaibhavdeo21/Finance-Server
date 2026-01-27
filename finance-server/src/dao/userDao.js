@@ -1,28 +1,35 @@
-const User = require('../model/users'); // Import the Mongoose Model
+// The Butler needs the User Cookie Cutter (Model) to know what he is looking for
+const User = require('../model/users');
 
 const userDao = {
-    
-    // Find a user by their email address
+    // This function looks for a user by their email address
     findByEmail: async (email) => {
-        // Mongoose 'findOne' returns a promise
+        // We ask the database: "Find one person with this email"
+        // 'await' means we wait for the answer before moving on
         const user = await User.findOne({ email });
         return user;
     },
 
-    // Create a new user in the database
+    // This function creates a NEW user in the database
     create: async (userData) => {
+        // We take the data and put it into our Cookie Cutter to make a new user shape
         const newUser = new User(userData);
         
         try {
-            // Save the new user to MongoDB
+            // We try to save this new user into the database permanently
             return await newUser.save();
         } catch (error) {
-            // Check for MongoDB duplicate key error (code 11000)
+            // If something goes wrong (like an error), we check what happened
+            
+            // Error code 11000 means "Duplicate Key", which means that email is already taken!
             if (error.code === 11000) {
                 const err = new Error();
-                err.code = 'USER_EXIST'; // Custom error code for controller to handle
+                // We give the error a special name so we know what it is later
+                err.code = 'USER_EXIST';
+                // We throw the error like a ball back to the person who called us
                 throw err;
             } else {
+                // If it's a different error, we just print it to the screen
                 console.log(error);
                 const err = new Error('Something went wrong while communicating with DB');
                 err.code = 'INTERNAL_SERVER_ERROR';
@@ -32,9 +39,5 @@ const userDao = {
     }
 };
 
-/* // OLD CODE (Source 2 - userDb.js): This was the dummy database file
-// const users = [];
-// module.exports = users;
-*/
-
+[cite_start]// We let other files use this Butler [cite: 633-701]
 module.exports = userDao;
