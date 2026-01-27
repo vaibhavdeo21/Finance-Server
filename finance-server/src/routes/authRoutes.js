@@ -28,4 +28,4 @@ const router = express.Router();
 router.post('/login', authController.login);
 router.post('/register', authController.register);
 
-module.exports = router; [cite_start]// [cite: 463-469]
+module.exports = router;

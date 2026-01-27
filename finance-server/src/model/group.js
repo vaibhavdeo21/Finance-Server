@@ -36,4 +36,4 @@ const groupSchema = new mongoose.Schema({
     }
 });
 
-module.exports = mongoose.model('Group', groupSchema); [cite_start]// [cite: 991-1034]
+module.exports = mongoose.model('Group', groupSchema);

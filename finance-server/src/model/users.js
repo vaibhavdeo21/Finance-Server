@@ -27,5 +27,5 @@ const userSchema = new mongoose.Schema({
     password: { type: String, required: true }
 });
 
-[cite_start]// We create the Model (the cookie cutter) and share it [cite: 709-724]
+// We create the Model (the cookie cutter) and share it
 module.exports = mongoose.model('User', userSchema);
