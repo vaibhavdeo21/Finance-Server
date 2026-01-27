@@ -1,35 +1,42 @@
-// This tells the computer to load our secret variables from the .env file
+// We ask the computer to read our secret .env file
 require('dotenv').config();
 
 const express = require('express');
 const mongoose = require('mongoose');
 
-// We bring in our traffic map for authentication
+// We bring in the map for User Login/Register
 const authRoutes = require('./src/routes/authRoutes');
 
 /* OLD CODE:
-// const app = express();
-// app.use(express.json());
-// let users = []; // We used to keep users in this simple box
+// We didn't have the group routes before
+// const groupRoutes = require('./src/routes/groupRoutes');
 */
 
 // NEW CODE:
-const app = express();
-app.use(express.json()); // This helps the server understand JSON messages
+// We bring in the new map for Group related things
+const groupRoutes = require('./src/routes/groupRoutes');
 
-// We tell the server: "If anyone goes to /auth, look at the authRoutes map"
+const app = express();
+// This helper allows us to read the messages sent by users
+app.use(express.json());
+
+// If the address starts with /auth, look at the authRoutes map
 app.use('/auth', authRoutes);
 
-/* OLD CODE (Direct Routes):
-// app.post('/register', (req, res) => { ... });
+/* OLD CODE:
+// We didn't have a route for groups
 */
 
-// We connect to the Database using the secret address in our .env file
-mongoose.connect(process.env.MONGO_DB_CONNECTION_URI)
-    .then(() => console.log('MongoDB Connected')) // If it works, say "Connected"
-    .catch((error) => console.log('Error Connecting to Database:', error)); // If it fails, tell us the error
+// NEW CODE:
+[cite_start]// If the address starts with /groups, look at the groupRoutes map [cite: 1153-1176]
+app.use('/groups', groupRoutes);
 
-// The server starts listening on port 5001, like opening the shop for business
+// We connect to the MongoDB database house using the key from our secret file
+mongoose.connect(process.env.MONGO_DB_CONNECTION_URI)
+    .then(() => console.log('MongoDB Connected'))
+    .catch((error) => console.log('Error Connecting to Database:', error));
+
+// We start the server shop on port 5001
 app.listen(5001, () => {
     console.log('Server is running on port 5001');
 });
