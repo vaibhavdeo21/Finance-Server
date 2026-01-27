@@ -1,24 +1,35 @@
-require('dotenv').config(); // Load the secret keys from the .env file immediately 
+// This tells the computer to load our secret variables from the .env file
+require('dotenv').config();
 
-const express = require('express'); // Bring in the Express tool
-const mongoose = require('mongoose'); // Bring in the Mongoose tool
-const authRoutes = require('./src/routes/authRoutes'); // Bring in our list of valid website addresses (routes)
+const express = require('express');
+const mongoose = require('mongoose');
 
-const app = express(); // Create our application (the shop)
+// We bring in our traffic map for authentication
+const authRoutes = require('./src/routes/authRoutes');
 
-// This line lets our app understand messages sent in JSON format (like a translator)
-app.use(express.json());
+/* OLD CODE:
+// const app = express();
+// app.use(express.json());
+// let users = []; // We used to keep users in this simple box
+*/
 
-// Connect to the database using the secret address we stored in the .env file
-// process.env.MONGO_DB_CONNECTION_URI grabs the value from that file 
-mongoose.connect(process.env.MONGO_DB_CONNECTION_URI)
-  .then(() => console.log('MongoDB Connected')) // If successful, say "Connected"
-  .catch((error) => console.log('Error Connecting to Database:', error)); // If it fails, show the error
+// NEW CODE:
+const app = express();
+app.use(express.json()); // This helps the server understand JSON messages
 
-// If anyone visits the address starting with /auth, send them to our authRoutes manager
+// We tell the server: "If anyone goes to /auth, look at the authRoutes map"
 app.use('/auth', authRoutes);
 
-const PORT = 5001; // The specific door number our server listens on
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`); // Tell us the server is ready
+/* OLD CODE (Direct Routes):
+// app.post('/register', (req, res) => { ... });
+*/
+
+// We connect to the Database using the secret address in our .env file
+mongoose.connect(process.env.MONGO_DB_CONNECTION_URI)
+    .then(() => console.log('MongoDB Connected')) // If it works, say "Connected"
+    .catch((error) => console.log('Error Connecting to Database:', error)); // If it fails, tell us the error
+
+// The server starts listening on port 5001, like opening the shop for business
+app.listen(5001, () => {
+    console.log('Server is running on port 5001');
 });
