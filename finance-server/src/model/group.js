@@ -1,25 +1,33 @@
+/* ==========================================================================
+   VERSION 1: NO GROUP MODEL
+   --------------------------------------------------------------------------
+   At the start of the project, we didn't have groups.
+   This file did not exist.
+   ========================================================================== */
+
+/* ==========================================================================
+   FINAL VERSION: GROUP BLUEPRINT
+   --------------------------------------------------------------------------
+   This tells MongoDB what a Group looks like.
+   ========================================================================== */
+
 const mongoose = require('mongoose');
 
 const groupSchema = new mongoose.Schema({
-    // Name of the group (Must have one)
     name: { type: String, required: true },
-    
-    // Description of the group (Optional)
     description: { type: String, required: false },
     
-    // The email of the boss of the group (Must have one)
+    // Who is the boss of the group?
     adminEmail: { type: String, required: true },
     
-    // When the group was created (Defaults to "Right Now")
     createdAt: { type: Date, default: Date.now() },
     
-    // A list of emails for everyone in the group
+    // List of members
     membersEmail: [String],
     
-    // A picture for the group (Optional)
     thumbnail: { type: String, required: false },
     
-    // Information about money status
+    // Money tracking
     paymentStatus: {
         amount: Number,
         currency: String,
@@ -28,4 +36,4 @@ const groupSchema = new mongoose.Schema({
     }
 });
 
-module.exports = mongoose.model('Group', groupSchema);
+module.exports = mongoose.model('Group', groupSchema); [cite_start]// [cite: 991-1034]

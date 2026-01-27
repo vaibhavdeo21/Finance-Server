@@ -1,35 +1,46 @@
-// The Butler needs the User Cookie Cutter (Model) to know what he is looking for
+/* ==========================================================================
+   VERSION 1: FAKE DATABASE HELPER (userDb.js)
+   --------------------------------------------------------------------------
+   This file used to be just a list in memory.
+   It was deleted when we moved to MongoDB, but here is what it looked like:
+   ========================================================================== */
+
+// // This was just a list in memory
+// // const users = [
+// //     { id: 1, name: "Admin", email: "admin@test.com", password: "123" }
+// // ];
+// // module.exports = users;
+
+
+/* ==========================================================================
+   FINAL VERSION: REAL DATABASE BUTLER (DAO)
+   --------------------------------------------------------------------------
+   Now it talks to MongoDB using the User Model.
+   ========================================================================== */
+
 const User = require('../model/users');
 
 const userDao = {
-    // This function looks for a user by their email address
+    // Find a person by email
     findByEmail: async (email) => {
-        // We ask the database: "Find one person with this email"
-        // 'await' means we wait for the answer before moving on
         const user = await User.findOne({ email });
         return user;
     },
 
-    // This function creates a NEW user in the database
+    // Create a new person
     create: async (userData) => {
-        // We take the data and put it into our Cookie Cutter to make a new user shape
         const newUser = new User(userData);
         
         try {
-            // We try to save this new user into the database permanently
             return await newUser.save();
         } catch (error) {
-            // If something goes wrong (like an error), we check what happened
-            
-            // Error code 11000 means "Duplicate Key", which means that email is already taken!
+            // Check if the error is "Duplicate Key" (Email already exists)
+            // Error code 11000 means "Duplicate" in MongoDB
             if (error.code === 11000) {
                 const err = new Error();
-                // We give the error a special name so we know what it is later
                 err.code = 'USER_EXIST';
-                // We throw the error like a ball back to the person who called us
                 throw err;
             } else {
-                // If it's a different error, we just print it to the screen
                 console.log(error);
                 const err = new Error('Something went wrong while communicating with DB');
                 err.code = 'INTERNAL_SERVER_ERROR';
@@ -39,5 +50,4 @@ const userDao = {
     }
 };
 
-[cite_start]// We let other files use this Butler [cite: 633-701]
-module.exports = userDao;
+module.exports = userDao; [cite_start]// [cite: 633-701]

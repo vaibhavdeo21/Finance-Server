@@ -1,17 +1,31 @@
-// We bring in the express tool again
+/* ==========================================================================
+   VERSION 1: BASIC ROUTES
+   --------------------------------------------------------------------------
+   We defined two paths: one for login, one for register.
+   ========================================================================== */
+
+// const express = require('express');
+// const authController = require('../controllers/authController');
+// const router = express.Router();
+
+// router.post('/login', authController.login);
+// router.post('/register', authController.register);
+
+// module.exports = router;
+
+
+/* ==========================================================================
+   FINAL VERSION: (Still the same structure)
+   --------------------------------------------------------------------------
+   Even though we added JWT and Database logic, the Route Map stays simple.
+   It just points to the Controller.
+   ========================================================================== */
+
 const express = require('express');
-
-// We bring in the Manager (authController) we just wrote
 const authController = require('../controllers/authController');
-
-// We create a Router, which is like a mini-map for directions
 const router = express.Router();
 
-// If someone sends a POST message to '/login', go to the login function
 router.post('/login', authController.login);
-
-// If someone sends a POST message to '/register', go to the register function
 router.post('/register', authController.register);
 
-[cite_start]// We share this map so the main server can use it [cite: 463-469]
-module.exports = router;
+module.exports = router; [cite_start]// [cite: 463-469]

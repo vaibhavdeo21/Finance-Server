@@ -1,42 +1,117 @@
-// We ask the computer to read our secret .env file
-require('dotenv').config();
+/* ==========================================================================
+   VERSION 1: THE BEGINNING (Day 1)
+   --------------------------------------------------------------------------
+   In the start, we wrote everything in this one file. 
+   We kept users in a simple list (array) because we didn't have a database.
+   ========================================================================== */
 
+// const express = require('express');
+// const app = express();
+// app.use(express.json()); // This lets us read JSON messages
+
+// // We created a fake list to hold users because we had no database house yet
+// // let users = []; 
+
+// // This was our first Register function right here in the main file!
+// // app.post('/register', (request, response) => {
+// //     const { name, email, password } = request.body;
+// //     
+// //     // We checked if anything was missing
+// //     if (!name || !email || !password) {
+// //         return response.status(400).json({ message: 'Name, Email, Password are required' });
+// //     }
+// //
+// //     // We created a new user and added them to our list
+// //     const newUser = {
+// //         id: users.length + 1,
+// //         name: name,
+// //         email: email,
+// //         password: password
+// //     };
+// //     users.push(newUser);
+// //
+// //     return response.status(200).json({ message: 'User registered', user: { id: newUser.id } });
+// // });
+
+// // app.listen(5001, () => { console.log('Server is running on port 5001'); });
+
+
+/* ==========================================================================
+   VERSION 2: CLEANING UP (Refactoring)
+   --------------------------------------------------------------------------
+   We moved the Register and Login logic to a separate folder (routes & controllers).
+   But we still didn't have a database or secret keys.
+   ========================================================================== */
+
+// const express = require('express');
+// const app = express();
+// app.use(express.json());
+
+// // We brought in the Traffic Map (routes)
+// // const authRoutes = require('./src/routes/authRoutes');
+
+// // We told the server to use the map
+// // app.use('/auth', authRoutes);
+
+// // app.listen(5001, () => { console.log('Server is running on port 5001'); });
+
+
+/* ==========================================================================
+   VERSION 3: ADDING DATABASE (MongoDB) & SECRETS (.env)
+   --------------------------------------------------------------------------
+   We added Mongoose to talk to the database.
+   We added 'dotenv' to hide our passwords.
+   ========================================================================== */
+
+// require('dotenv').config(); // Load secrets
+// const express = require('express');
+// const mongoose = require('mongoose'); // Bring in the database tool
+// const authRoutes = require('./src/routes/authRoutes');
+
+// const app = express();
+// app.use(express.json());
+
+// // Connect to the real database house
+// // mongoose.connect(process.env.MONGO_DB_CONNECTION_URI)
+// //    .then(() => console.log('MongoDB Connected'))
+// //    .catch((error) => console.log('Error Connecting to Database:', error));
+
+// app.use('/auth', authRoutes);
+
+// // app.listen(5001, () => { console.log('Server is running on port 5001'); });
+
+
+/* ==========================================================================
+   FINAL VERSION: THE COMPLETE SERVER (Today)
+   --------------------------------------------------------------------------
+   Now we have:
+   1. Cookie Parser (to read cookies)
+   2. Group Routes (to manage groups)
+   ========================================================================== */
+
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 
-// We bring in the map for User Login/Register
+// NEW: We bring in the tool to read cookies
+const cookieParser = require('cookie-parser');
+
 const authRoutes = require('./src/routes/authRoutes');
-
-/* OLD CODE:
-// We didn't have the group routes before
-// const groupRoutes = require('./src/routes/groupRoutes');
-*/
-
-// NEW CODE:
-// We bring in the new map for Group related things
 const groupRoutes = require('./src/routes/groupRoutes');
 
 const app = express();
-// This helper allows us to read the messages sent by users
 app.use(express.json());
 
-// If the address starts with /auth, look at the authRoutes map
+// NEW: We tell the server to use the Cookie Parser tool
+app.use(cookieParser());
+
 app.use('/auth', authRoutes);
-
-/* OLD CODE:
-// We didn't have a route for groups
-*/
-
-// NEW CODE:
-[cite_start]// If the address starts with /groups, look at the groupRoutes map [cite: 1153-1176]
 app.use('/groups', groupRoutes);
 
-// We connect to the MongoDB database house using the key from our secret file
 mongoose.connect(process.env.MONGO_DB_CONNECTION_URI)
     .then(() => console.log('MongoDB Connected'))
     .catch((error) => console.log('Error Connecting to Database:', error));
 
-// We start the server shop on port 5001
 app.listen(5001, () => {
     console.log('Server is running on port 5001');
 });

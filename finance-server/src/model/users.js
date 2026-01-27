@@ -1,18 +1,31 @@
-// We are bringing in the mongoose tool, which helps us talk to the database
+/* ==========================================================================
+   VERSION 1: NO FILE (Day 1)
+   --------------------------------------------------------------------------
+   In the beginning, we did not have a database model.
+   We just used a variable in server.js:
+   // let users = [];
+   ========================================================================== */
+
+/* ==========================================================================
+   FINAL VERSION: USER BLUEPRINT (Schema)
+   --------------------------------------------------------------------------
+   We created this when we connected MongoDB.
+   This tells the database what a "User" looks like.
+   ========================================================================== */
+
 const mongoose = require('mongoose');
 
-// Here we are creating a Rule Book (Schema) for what a User looks like
+// We create a Rule Book (Schema)
 const userSchema = new mongoose.Schema({
-    // Every user MUST have a name, and it must be text (String)
+    // Name is required
     name: { type: String, required: true },
     
-    // Every user MUST have an email, it must be text, and it must be unique (no two people can have the same email)
+    // Email is required AND must be unique (no duplicates)
     email: { type: String, required: true, unique: true },
     
-    // Every user MUST have a password to stay safe
+    // Password is required
     password: { type: String, required: true }
 });
 
-// We are turning this Rule Book into a real Model so we can make new users later
-[cite_start]// We export it so other files can use this cookie cutter [cite: 709-724]
+[cite_start]// We create the Model (the cookie cutter) and share it [cite: 709-724]
 module.exports = mongoose.model('User', userSchema);
