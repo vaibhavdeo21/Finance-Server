@@ -103,13 +103,14 @@ We added a feature to manage Expense Groups.
 
 **1. Install Dependencies**
 Open your terminal and run:
-`bash
-npm install`
+```bash```
+*`npm install`
 **2. Setup Environment Create a .env file in the root folder and add your MongoDB URL:**
-`Code snippet:
-MONGO_DB_CONNECTION_URI=your_mongodb_connection_string`
+```Code snippet:```
+*`MONGO_DB_CONNECTION_URI=your_mongodb_connection_string`
 **3. Start the Server Run the following command to start the backend:**
-`bash
-npm start`
+```bash```
+*`npm start`
 
 **You should see "Server is running on port 5001" and "MongoDB Connected" in the console.**
+
