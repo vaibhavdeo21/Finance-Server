@@ -92,7 +92,7 @@
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-
+const cors = require('cors');
 // NEW: We bring in the tool to read cookies
 const cookieParser = require('cookie-parser');
 
@@ -111,6 +111,11 @@ app.use('/groups', groupRoutes);
 mongoose.connect(process.env.MONGO_DB_CONNECTION_URI)
     .then(() => console.log('MongoDB Connected'))
     .catch((error) => console.log('Error Connecting to Database:', error));
+
+const corsOption = {
+   origin: '',
+   credentials: true
+}
 
 app.listen(5001, () => {
     console.log('Server is running on port 5001');
