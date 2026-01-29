@@ -95,27 +95,29 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 // NEW: We bring in the tool to read cookies
 const cookieParser = require('cookie-parser');
-
 const authRoutes = require('./src/routes/authRoutes');
 const groupRoutes = require('./src/routes/groupRoutes');
-
-const app = express();
-app.use(express.json());
-
-// NEW: We tell the server to use the Cookie Parser tool
-app.use(cookieParser());
-app.use(cors(corsOption));
-app.use('/auth', authRoutes);
-app.use('/groups', groupRoutes);
 
 mongoose.connect(process.env.MONGO_DB_CONNECTION_URI)
     .then(() => console.log('MongoDB Connected'))
     .catch((error) => console.log('Error Connecting to Database:', error));
 
+
 const corsOption = {
    origin: process.env.CLIENT_URL,
    credentials: true
 }
+
+const app = express();
+
+
+app.use(express.json());
+//We tell the server to use the Cookie Parser tool
+app.use(cookieParser());
+app.use(cors(corsOption));
+app.use('/auth', authRoutes);
+app.use('/groups', groupRoutes);
+
 
 app.listen(5001, () => {
     console.log('Server is running on port 5001');
