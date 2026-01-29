@@ -104,7 +104,7 @@ app.use(express.json());
 
 // NEW: We tell the server to use the Cookie Parser tool
 app.use(cookieParser());
-
+app.use(cors(corsOption));
 app.use('/auth', authRoutes);
 app.use('/groups', groupRoutes);
 
@@ -113,7 +113,7 @@ mongoose.connect(process.env.MONGO_DB_CONNECTION_URI)
     .catch((error) => console.log('Error Connecting to Database:', error));
 
 const corsOption = {
-   origin: '',
+   origin: process.env.CLIENT_URL,
    credentials: true
 }
 
