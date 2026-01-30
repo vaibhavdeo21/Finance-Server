@@ -10,6 +10,55 @@ const jwt = require('jsonwebtoken');
 
 const authController = {
 
+    register: async (request, response) => {
+        const { name, email, password } = request.body;
+
+        if (!name || !email || !password) {
+            return response.status(400).json({ message: 'Name, Email, Password are required' });
+        }
+
+        try {
+            const salt = await bcrypt.genSalt(10);
+            const hashedPassword = await bcrypt.hash(password, salt);
+
+            // 1. Create the user
+            const newUser = await userDao.create({
+                name: name,
+                email: email,
+                password: hashedPassword
+            });
+
+            // 2. NEW: Create the Token immediately (Just like Login)
+            const token = jwt.sign({
+                name: newUser.name,
+                email: newUser.email,
+                id: newUser._id
+            }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+            // 3. NEW: Set the Cookie
+            response.cookie('jwtToken', token, {
+                httpOnly: true,
+                secure: true,
+                domain: 'localhost',
+                path: '/'
+            });
+
+            // 4. Return the user info (so frontend knows they are logged in)
+            return response.status(200).json({
+                message: 'User registered and logged in',
+                user: newUser
+            });
+
+        } catch (error) {
+            if (error.code === 'USER_EXIST') {
+                return response.status(400).json({ message: 'User with this email already exists' });
+            } else {
+                console.log(error);
+                return response.status(500).json({ message: "Internal server error" });
+            }
+        }
+    },
+
     login: async (request, response) => {
         const { email, password } = request.body;
 
