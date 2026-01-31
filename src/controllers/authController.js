@@ -7,6 +7,7 @@
 const userDao = require('../dao/userDao');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken'); 
+const { OAuth2Client } = require('google-auth-library');
 
 const authController = {
 
@@ -125,7 +126,6 @@ const authController = {
         });
     },
 
-    // NEW FUNCTION: Check if the user is logged in (Verify Token) [cite: 1295-1376]
     isUserLoggedIn: async (request, response) => {
         try {
             // 1. Get the token from the cookie
@@ -171,6 +171,60 @@ const authController = {
             return response.status(500).json({
                 message: 'Internal server error'
             });
+        }
+    },
+    
+    googleSso: async (request, response) => {
+        try {
+            const { idToken } = request.body;
+            if (!idToken) {
+                return response.status(401).json({ message: 'Invalid request' });
+            }
+
+            const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+            const googleResponse = await googleClient.verifyIdToken({
+                idToken: idToken,
+                audience: process.env.GOOGLE_CLIENT_ID,
+            });
+
+            const payload = googleResponse.getPayload();
+            const { sub: googleId, name, email } = payload;
+
+            let user = await userDao.findByEmail(email);
+
+            // If user does not exist, create them
+            if (!user) {
+                user = await userDao.create({
+                    name: name,
+                    email: email,
+                    googleId: googleId,
+                    // No password needed for SSO users
+                });
+            }
+
+            // Generate Token (Same as manual login)
+            const token = jwt.sign({
+                name: user.name,
+                email: user.email,
+                id: user._id
+            }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+            // Set Cookie
+            response.cookie('jwtToken', token, {
+                httpOnly: true,
+                secure: true,
+                domain: 'localhost',
+                path: '/'
+            });
+
+            return response.status(200).json({
+                message: 'User authenticated',
+                user: user
+            });
+
+        } catch (error) {
+            console.log(error);
+            return response.status(500).json({ message: 'Internal server error' });
         }
     }
 };

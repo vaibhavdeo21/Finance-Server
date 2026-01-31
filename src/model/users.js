@@ -15,17 +15,11 @@
 
 const mongoose = require('mongoose');
 
-// We create a Rule Book (Schema)
 const userSchema = new mongoose.Schema({
-    // Name is required
     name: { type: String, required: true },
-    
-    // Email is required AND must be unique (no duplicates)
     email: { type: String, required: true, unique: true },
-    
-    // Password is required
-    password: { type: String, required: true }
+    password: { type: String, required: false }, // <-- CHANGE to false
+    googleId: { type: String, required: false }  // <-- ADD THIS
 });
 
-// We create the Model (the cookie cutter) and share it
 module.exports = mongoose.model('User', userSchema);
