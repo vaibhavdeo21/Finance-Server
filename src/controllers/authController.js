@@ -70,7 +70,7 @@ const authController = {
         const user = await userDao.findByEmail(email);
 
         if (user) {
-            // NEW CHECK: If user has a Google ID but NO password, force Google Login
+            // If user has a Google ID but NO password, force Google Login
             if (user.googleId && !user.password) {
                 return response.status(400).json({ 
                     message: 'Please log in using Google SSO' 
