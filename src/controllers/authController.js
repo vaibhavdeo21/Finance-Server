@@ -70,26 +70,36 @@ const authController = {
         const user = await userDao.findByEmail(email);
 
         if (user) {
-            const isPasswordMatched = await bcrypt.compare(password, user.password);
-            
-            if (isPasswordMatched) {
-                const token = jwt.sign({
-                    name: user.name,
-                    email: user.email,
-                    id: user._id
-                }, process.env.JWT_SECRET, { expiresIn: '1h' });
-
-                response.cookie('jwtToken', token, {
-                    httpOnly: true,
-                    secure: true,
-                    domain: 'localhost',
-                    path: '/'
+            // NEW CHECK: If user has a Google ID but NO password, force Google Login
+            if (user.googleId && !user.password) {
+                return response.status(400).json({ 
+                    message: 'Please log in using Google SSO' 
                 });
+            }
 
-                return response.status(200).json({
-                    message: 'User authenticated',
-                    user: user
-                });
+            // Standard Password Check
+            if (user.password) {
+                const isPasswordMatched = await bcrypt.compare(password, user.password);
+                
+                if (isPasswordMatched) {
+                    const token = jwt.sign({
+                        name: user.name,
+                        email: user.email,
+                        id: user._id
+                    }, process.env.JWT_SECRET, { expiresIn: '1h' });
+
+                    response.cookie('jwtToken', token, {
+                        httpOnly: true,
+                        secure: true,
+                        domain: 'localhost',
+                        path: '/'
+                    });
+
+                    return response.status(200).json({
+                        message: 'User authenticated',
+                        user: user
+                    });
+                }
             }
         }
         
@@ -173,7 +183,7 @@ const authController = {
             });
         }
     },
-    
+
     googleSso: async (request, response) => {
         try {
             const { idToken } = request.body;
