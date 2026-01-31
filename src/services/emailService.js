@@ -10,7 +10,13 @@ nodemailer.createTransport({
 
 const emailService = {
     send: async (to, subject, body) => {
-
+        const emailOptions = {
+            from: process.env.GMAIL_EMAIL,
+            to: to,
+            subject: subject,
+            text: body
+        };
+        await emailClient.sendMail(emailOptions);
     },
 };
 
