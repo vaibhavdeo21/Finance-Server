@@ -1,55 +1,47 @@
-/* ==========================================================================
-   VERSION 1: NO GROUP DAO
-   --------------------------------------------------------------------------
-   We didn't have any group logic in the beginning.
-   ========================================================================== */
-
-/* ==========================================================================
-   FINAL VERSION: GROUP BUTLER
-   --------------------------------------------------------------------------
-   Handles saving and updating groups in the database.
-   ========================================================================== */
-
-const Group = require("../model/group");
+const Group = require('../model/groups'); // Assuming you have a Group model
 
 const groupDao = {
-    createGroup: async (data) => {
-        const newGroup = new Group(data);
-        return await newGroup.save();
+    createGroup: async (groupData) => {
+        return await Group.create(groupData);
     },
 
-    updateGroup: async (data) => {
-        const { groupId, name, description, thumbnail, adminEmail, paymentStatus } = data;
-        // 'new: true' means return the UPDATED group, not the old one
-        return await Group.findByIdAndUpdate(groupId, {
-            name, description, thumbnail, adminEmail, paymentStatus,
-        }, { new: true });
+    updateGroup: async (groupData) => {
+        return await Group.findByIdAndUpdate(groupData._id, groupData, { new: true });
     },
 
-    addMembers: async (groupId, ...membersEmails) => {
-        // $addToSet ensures we don't add the same friend twice
-        return await Group.findByIdAndUpdate(groupId, {
-            $addToSet: { membersEmail: { $each: membersEmails }}
-        }, { new: true });
+    addMembers: async (groupId, ...membersEmail) => {
+        return await Group.findByIdAndUpdate(
+            groupId,
+            { $addToSet: { membersEmail: { $each: membersEmail } } },
+            { new: true }
+        );
     },
 
-    removeMembers: async (groupId, memberEmail) => {
-        return await Group.findByIdAndUpdate(groupId, {
-            $pull: { membersEmail: memberEmail }
-        }, { new: true });
+    removeMembers: async (groupId, ...membersEmails) => {
+        return await Group.findByIdAndUpdate(
+            groupId,
+            { $pull: { membersEmail: { $in: membersEmails } } },
+            { new: true }
+        );
     },
 
     getGroupByEmail: async (email) => {
-        // Find all groups where this person is a member
+        // Find groups where this email is listed in membersEmail
         return await Group.find({ membersEmail: email });
     },
 
     getGroupByStatus: async (status) => {
-        return await Group.find({ 'paymentStatus.isPaid': status });
+        // Querying based on the nested paymentStatus.isPaid boolean
+        return await Group.find({ "paymentStatus.isPaid": status });
     },
 
+    /**
+     * @param {*} groupId 
+     */
     getAuditLog: async (groupId) => {
-        return await Group.findById(groupId);
+        // Based on your schema, the most relevant "settled" info is the date within paymentStatus.
+        const group = await Group.findById(groupId).select('paymentStatus.date');
+        return group ? group.paymentStatus.date : null;
     }
 };
 

@@ -1,14 +1,16 @@
 const groupDao = require("../dao/groupDao");
 
 const groupController = {
-
     create: async (request, response) => {
         try {
+            const user = request.user; // From authMiddleware
             const { name, description, membersEmail, thumbnail } = request.body;
-            const user = request.user; 
+
+            // Ensure the creator is in the members list
             let allMembers = [user.email];
 
             if (membersEmail && Array.isArray(membersEmail)) {
+                // Merge and remove duplicates
                 allMembers = [...new Set([...allMembers, ...membersEmail])];
             }
 
@@ -21,133 +23,81 @@ const groupController = {
                 paymentStatus: {
                     amount: 0,
                     currency: 'INR',
-                    date: Date.now(),
                     isPaid: false
                 }
             });
 
-            response.status(200).json({
-                message: 'Group created',
+            response.status(201).json({
+                message: 'Group created successfully',
                 groupId: newGroup._id
             });
         } catch (error) {
-            console.log(error);
+            console.error(error);
             response.status(500).json({ message: "Internal server error" });
         }
     },
 
-    // NEW FUNCTION: Update Group Details
-    updateGroup: async (request, response) => {
+    update: async (request, response) => {
         try {
-            // We get the updates from the message
-            const { groupId, name, description, thumbnail } = request.body;
-
-            // We ask the Butler (DAO) to make the changes
-            const updatedGroup = await groupDao.updateGroup({
-                groupId,
-                name,
-                description,
-                thumbnail
-            });
-
-            // We send the new details back to the user
-            response.status(200).json({
-                message: "Group updated",
-                group: updatedGroup
-            });
-
+            const updatedGroup = await groupDao.updateGroup(request.body);
+            if (!updatedGroup) {
+                return response.status(404).json({ message: "Group not found" });
+            }
+            response.status(200).json(updatedGroup);
         } catch (error) {
-            response.status(500).json({ message: "Internal server error" });
+            console.error(error);
+            response.status(500).json({ message: "Error updating group" });
         }
     },
 
-    // NEW FUNCTION: Add new friends to the group
     addMembers: async (request, response) => {
         try {
-            // We need the Group ID and the list of new emails
-            const { groupId, membersEmail } = request.body;
-
-            // We ask the Butler to add these people
-            const updatedGroup = await groupDao.addMembers(groupId, ...membersEmail);
-
-            response.status(200).json({
-                message: "Members added",
-                group: updatedGroup
-            });
+            const { groupId, emails } = request.body;
+            const updatedGroup = await groupDao.addMembers(groupId, ...emails);
+            response.status(200).json(updatedGroup);
         } catch (error) {
-            response.status(500).json({ message: "Internal server error" });
+            response.status(500).json({ message: "Error adding members" });
         }
     },
 
-    // NEW FUNCTION: Remove a friend from the group
     removeMembers: async (request, response) => {
         try {
-            // We need the Group ID and the email of the person to remove
-            const { groupId, memberEmail } = request.body;
-
-            // We ask the Butler to remove this person
-            const updatedGroup = await groupDao.removeMembers(groupId, memberEmail);
-
-            response.status(200).json({
-                message: "Member removed",
-                group: updatedGroup
-            });
+            const { groupId, emails } = request.body;
+            const updatedGroup = await groupDao.removeMembers(groupId, ...emails);
+            response.status(200).json(updatedGroup);
         } catch (error) {
-            response.status(500).json({ message: "Internal server error" });
+            response.status(500).json({ message: "Error removing members" });
         }
     },
 
-    // NEW FUNCTION: Find all groups for a specific email
-    getGroupByEmail: async (request, response) => {
+    getGroupsByUser: async (request, response) => {
         try {
-            // We look at the Token (Badge) to see who is asking
-            const userEmail = request.user.email;
-
-            // We ask the Butler to find all groups for this person
-            const groups = await groupDao.getGroupByEmail(userEmail);
-
-            response.status(200).json({
-                message: "Groups fetched",
-                groups: groups
-            });
+            const email = request.user.email;
+            const groups = await groupDao.getGroupByEmail(email);
+            response.status(200).json(groups);
         } catch (error) {
-            response.status(500).json({ message: "Internal server error" });
+            response.status(500).json({ message: "Error fetching groups" });
         }
     },
 
-    // NEW FUNCTION: Find groups based on payment status (Paid/Unpaid)
-    getGroupByStatus: async (request, response) => {
+    getGroupsByPaymentStatus: async (request, response) => {
         try {
-            // We get the status (true or false) from the URL (e.g., /status/true)
-            const { isPaid } = request.params; 
-
-            // We ask the Butler to find the groups
-            const groups = await groupDao.getGroupByStatus(isPaid);
-
-            response.status(200).json({
-                message: "Groups fetched by status",
-                groups: groups
-            });
+            const { isPaid } = request.query;
+            const status = isPaid === 'true';
+            const groups = await groupDao.getGroupByStatus(status);
+            response.status(200).json(groups);
         } catch (error) {
-            response.status(500).json({ message: "Internal server error" });
+            response.status(500).json({ message: "Error filtering groups" });
         }
     },
 
-    // NEW FUNCTION: Get the audit log (history)
-    getAuditLog: async (request, response) => {
+    getAudit: async (request, response) => {
         try {
-            // We get the Group ID from the URL
             const { groupId } = request.params;
-
-            // We ask the Butler for the log
-            const log = await groupDao.getAuditLog(groupId);
-
-            response.status(200).json({
-                message: "Audit log fetched",
-                log: log
-            });
+            const lastSettled = await groupDao.getAuditLog(groupId);
+            response.status(200).json({ lastSettled });
         } catch (error) {
-            response.status(500).json({ message: "Internal server error" });
+            response.status(500).json({ message: "Error fetching audit log" });
         }
     }
 };
