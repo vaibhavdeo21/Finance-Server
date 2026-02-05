@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const { validationResult } = require('express-validator');
+const { ADMIN_ROLE } = require('../utility/userRoles');
 
 const authController = {
     login: async (request, response) => {
@@ -12,17 +13,23 @@ const authController = {
                 errors: errors.array()
             });
         }
-        
-        const { email, password } = request.body;
 
+        const { email, password } = request.body;
         const user = await userDao.findByEmail(email);
+        
+        // Logic below ensures backward compatibility if role/adminId missing
+        user.role = user.role ? user.role : ADMIN_ROLE;
+        user.adminId = user.adminId ? user.adminId : user._id;
 
         const isPasswordMatched = await bcrypt.compare(password, user.password);
         if (user && isPasswordMatched) {
             const token = jwt.sign({
                 name: user.name,
                 email: user.email,
-                id: user._id
+                id: user._id,
+                _id: user._id, // Standardizing ID access
+                role: user.role,
+                adminId: user.adminId
             }, process.env.JWT_SECRET,
                 { expiresIn: '1h' }
             );
@@ -59,7 +66,8 @@ const authController = {
         userDao.create({
             name: name,
             email: email,
-            password: hashedPassword
+            password: hashedPassword,
+            role: ADMIN_ROLE // Default role for public registration
         })
             .then(u => {
                 return response.status(200).json({
@@ -84,30 +92,19 @@ const authController = {
     isUserLoggedIn: async (request, response) => {
         try {
             const token = request.cookies?.jwtToken;
-
             if (!token) {
-                return response.status(401).json({
-                    message: 'Unauthorized access'
-                });
+                return response.status(401).json({ message: 'Unauthorized access' });
             }
-
             jwt.verify(token, process.env.JWT_SECRET, (error, user) => {
                 if (error) {
-                    return response.status(401).json({
-                        message: 'Invalid token'
-                    });
+                    return response.status(401).json({ message: 'Invalid token' });
                 } else {
-                    response.json({
-                        user: user
-                    });
+                    response.json({ user: user });
                 }
-
             });
         } catch (error) {
             console.log(error);
-            return response.status(500).json({
-                message: 'Internal server error'
-            });
+            return response.status(500).json({ message: 'Internal server error' });
         }
     },
 
@@ -117,9 +114,7 @@ const authController = {
             response.json({ message: 'Logout successfull' });
         } catch (error) {
             console.log(error);
-            return response.status(500).json({
-                message: 'Internal server error'
-            });
+            return response.status(500).json({ message: 'Internal server error' });
         }
     },
 
@@ -144,7 +139,8 @@ const authController = {
                 user = await userDao.create({
                     name: name,
                     email: email,
-                    googleId: googleId
+                    googleId: googleId,
+                    role: ADMIN_ROLE
                 });
             }
 
@@ -152,7 +148,10 @@ const authController = {
                 name: user.name,
                 email: user.email,
                 googleId: user.googleId,
-                id: user._id
+                id: user._id,
+                _id: user._id,
+                role: user.role ? user.role : ADMIN_ROLE,
+                adminId: user.adminId ? user.adminId : user._id
             }, process.env.JWT_SECRET,
                 { expiresIn: '1h' }
             );
