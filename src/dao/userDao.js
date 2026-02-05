@@ -6,13 +6,18 @@ const userDao = {
         return user;
     },
 
+    // Added for RBAC Bug Fix logic
+    findById: async (id) => {
+        return await User.findById(id);
+    },
+
     create: async (userData) => {
         const newUser = new User(userData);
         try {
             return await newUser.save();
         } catch (error) {
             if (error.code === 11000) {
-                const err =  new Error()
+                const err = new Error()
                 err.code = 'USER_EXIST';
                 throw err;
             } else {

@@ -1,4 +1,5 @@
 const groupDao = require("../dao/groupDao");
+const userDao = require("../dao/userDao");
 
 const groupController = {
 
@@ -70,10 +71,24 @@ const groupController = {
 
     getGroupsByUser: async (request, response) => {
         try {
-            const email = request.user.email;
-            const groups = await groupDao.getGroupByEmail(email);
+            const user = request.user;
+            
+            // BUG FIX: If user is a child account (has adminId), fetch groups owned by their Admin.
+            // Otherwise (if adminId is null or same as _id), fetch their own groups.
+            let targetEmail = user.email;
+            if (user.adminId && user.adminId !== user._id) {
+                const adminUser = await userDao.findById(user.adminId);
+                if (adminUser) {
+                    targetEmail = adminUser.email;
+                }
+            }
+            
+            // Fetch groups where user is explicitly a member OR where their Parent Admin is the owner
+            const groups = await groupDao.getGroupsForUser(user.email, targetEmail);
+            
             response.status(200).json(groups);
         } catch (error) {
+            console.error(error);
             response.status(500).json({ message: "Error fetching groups" });
         }
     },

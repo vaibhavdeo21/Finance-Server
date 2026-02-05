@@ -30,21 +30,22 @@ const groupDao = {
         return await Group.find({ membersEmail: email });
     },
 
+    // RBAC FIX: Custom query to find groups for member OR parent admin
+    getGroupsForUser: async (userEmail, adminEmail) => {
+        return await Group.find({
+            $or: [
+                { membersEmail: userEmail },     // I am a member
+                { adminEmail: userEmail },       // I am the admin/owner
+                { adminEmail: adminEmail }       // My Parent Admin owns the group
+            ]
+        });
+    },
+
     getGroupByStatus: async (status) => {
-        // Take email as the input, then filter groups by email
-        // Check in membersEmail field.
         return await Group.find({ "paymentStatus.isPaid": status });
     },
 
-    /**
-     * We'll only return when was the last time group
-     * was settled to begin with.
-     * In future, we can move this to separate entity!
-     * @param {*} groupId 
-     */
     getAuditLog: async (groupId) => {
-        // Based on your schema, the most relevant "settled" info 
-        // is the date within paymentStatus.
         const group = await Group.findById(groupId).select('paymentStatus.date');
         return group ? group.paymentStatus.date : null;
     }
