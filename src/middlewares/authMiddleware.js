@@ -6,7 +6,9 @@ const authMiddleware = {
             const token = request.cookies?.jwtToken;
 
             if (!token) {
-                return response.status(401).json({ error: 'Unauthorized access' });
+                return response.status(401).json({
+                    error: 'Unauthorized access'
+                });
             }
 
             try {
@@ -14,12 +16,16 @@ const authMiddleware = {
                 request.user = user;
                 next();
             } catch (error) {
-                return response.status(401).json({ error: 'Unauthorized access' });
+                return response.status(401).json({
+                    error: 'Unauthorized access'
+                });
             }
 
         } catch (error) {
             console.log(error);
-            response.status(500).json({ message: "Internal server error" });
+            response.status(500).json({
+                message: 'Internal server error'
+            });
         }
     },
 };

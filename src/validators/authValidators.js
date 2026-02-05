@@ -6,7 +6,7 @@ const loginValidators = [
         .isEmail().withMessage("Provided email is not valid"),
     body('password')
         .notEmpty().withMessage("Password is required")
-        .isLength({ min: 3 }).withMessage("Password must be at least 3 characters long")
+        .isLength({ min: 3 }).withMessage("Password must be atleast 3 character long")
 ];
 
 module.exports = {

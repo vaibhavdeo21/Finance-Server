@@ -1,16 +1,14 @@
 const groupDao = require("../dao/groupDao");
 
 const groupController = {
+
     create: async (request, response) => {
         try {
-            const user = request.user; // From authMiddleware
+            const user = request.user;
             const { name, description, membersEmail, thumbnail } = request.body;
 
-            // Ensure the creator is in the members list
             let allMembers = [user.email];
-
             if (membersEmail && Array.isArray(membersEmail)) {
-                // Merge and remove duplicates
                 allMembers = [...new Set([...allMembers, ...membersEmail])];
             }
 
@@ -23,6 +21,7 @@ const groupController = {
                 paymentStatus: {
                     amount: 0,
                     currency: 'INR',
+                    date: Date.now(),
                     isPaid: false
                 }
             });
@@ -45,7 +44,6 @@ const groupController = {
             }
             response.status(200).json(updatedGroup);
         } catch (error) {
-            console.error(error);
             response.status(500).json({ message: "Error updating group" });
         }
     },
