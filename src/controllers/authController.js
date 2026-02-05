@@ -1,20 +1,14 @@
-/* ==========================================================================
-   FINAL VERSION: JWT & COOKIES
-   --------------------------------------------------------------------------
-   Includes Login, Register, Logout, and Token Verification.
-   ========================================================================== */
-
 const userDao = require('../dao/userDao');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const { validationResult } = require('express-validator');
+const { ADMIN_ROLE } = require('../utility/userRoles'); // [cite: 7806]
 
 const authController = {
 
     register: async (request, response) => {
         const { name, email, password } = request.body;
-
         if (!name || !email || !password) {
             return response.status(400).json({ message: 'Name, Email, Password are required' });
         }
@@ -23,21 +17,23 @@ const authController = {
             const salt = await bcrypt.genSalt(10);
             const hashedPassword = await bcrypt.hash(password, salt);
 
-            // 1. Create the user
+            // Default register role can be handled in DAO or Schema, usually 'viewer' or 'admin' depending on logic
+            // For now, we assume Schema default or specific logic isn't strictly defined in the prompt for Register
             const newUser = await userDao.create({
                 name: name,
                 email: email,
                 password: hashedPassword
+                // role: ADMIN_ROLE // Optional: Assign default role here if needed
             });
 
-            // 2. NEW: Create the Token immediately (Just like Login)
+            // Issue Token with Role
             const token = jwt.sign({
                 name: newUser.name,
                 email: newUser.email,
-                id: newUser._id
+                id: newUser._id,
+                role: newUser.role
             }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-            // 3. NEW: Set the Cookie
             response.cookie('jwtToken', token, {
                 httpOnly: true,
                 secure: true,
@@ -45,7 +41,6 @@ const authController = {
                 path: '/'
             });
 
-            // 4. Return the user info (so frontend knows they are logged in)
             return response.status(200).json({
                 message: 'User registered and logged in',
                 user: newUser
@@ -62,7 +57,6 @@ const authController = {
     },
 
     login: async (request, response) => {
-        // 1. Validator Check [cite: 161]
         const errors = validationResult(request);
         if (!errors.isEmpty()) {
             return response.status(400).json({ errors: errors.array() });
@@ -80,29 +74,29 @@ const authController = {
                 const isPasswordMatched = await bcrypt.compare(password, user.password);
                 if (isPasswordMatched) {
 
-                    // 2. Issue Access Token (1 Hour)
+                    // 1. Issue Access Token with ROLE
                     const token = jwt.sign({
                         name: user.name,
                         email: user.email,
-                        id: user._id
+                        id: user._id,
+                        role: user.role // [cite: 7858]
                     }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-                    // 3. Issue Refresh Token (7 Days) [Ref: WhatsApp Image 1]
+                    // 2. Issue Refresh Token with ROLE
                     const refreshToken = jwt.sign({
                         name: user.name,
                         email: user.email,
-                        id: user._id
+                        id: user._id,
+                        role: user.role // [cite: 7865]
                     }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-                    // Set Access Cookie
                     response.cookie('jwtToken', token, {
                         httpOnly: true,
-                        secure: true, // true if using https
+                        secure: true,
                         domain: 'localhost',
                         path: '/'
                     });
 
-                    // Set Refresh Cookie
                     response.cookie('refreshToken', refreshToken, {
                         httpOnly: true,
                         secure: true,
@@ -124,7 +118,6 @@ const authController = {
         try {
             const { jwtToken, refreshToken } = request.cookies;
 
-            // Helper to verify token
             const verifyToken = (token) => {
                 try {
                     return jwt.verify(token, process.env.JWT_SECRET);
@@ -133,19 +126,19 @@ const authController = {
                 }
             };
 
-            // 1. Try Access Token first
             let user = verifyToken(jwtToken);
 
-            // 2. If Access Token invalid/expired, try Refresh Token [Ref: WhatsApp Image 1]
             if (!user && refreshToken) {
                 user = verifyToken(refreshToken);
 
                 if (user) {
                     // Refresh Token is valid! Issue new Access Token (1h)
+                    // Ensure we carry over the ROLE
                     const newToken = jwt.sign({
                         name: user.name,
                         email: user.email,
-                        id: user.id
+                        id: user.id,
+                        role: user.role 
                     }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
                     response.cookie('jwtToken', newToken, {
@@ -161,13 +154,12 @@ const authController = {
                 return response.status(401).json({ message: 'Unauthorized access' });
             }
 
-            // Return user info
-            // (You might want to fetch fresh user data from DB here to be safe)
             response.json({
                 user: {
                     name: user.name,
                     email: user.email,
-                    _id: user.id
+                    _id: user.id || user._id, // Handle both id formats
+                    role: user.role
                 }
             });
 
@@ -179,7 +171,7 @@ const authController = {
 
     logout: async (request, response) => {
         response.clearCookie('jwtToken');
-        response.clearCookie('refreshToken'); // Clear refresh token too
+        response.clearCookie('refreshToken');
         response.json({ message: 'Logout successful' });
     },
     
@@ -201,24 +193,23 @@ const authController = {
 
             let user = await userDao.findByEmail(email);
 
-            // If user does not exist, create them
             if (!user) {
                 user = await userDao.create({
                     name: name,
                     email: email,
                     googleId: googleId,
-                    // No password needed for SSO users
+                    role: ADMIN_ROLE // [cite: 7894] Default new Google Users to Admin
                 });
             }
 
-            // Generate Token (Same as manual login)
+            // Issue Token with ROLE
             const token = jwt.sign({
                 name: user.name,
                 email: user.email,
-                id: user._id
+                id: user._id,
+                role: user.role 
             }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
-            // Set Cookie
             response.cookie('jwtToken', token, {
                 httpOnly: true,
                 secure: true,

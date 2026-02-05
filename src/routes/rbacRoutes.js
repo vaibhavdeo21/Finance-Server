@@ -1,15 +1,16 @@
 const express = require('express');
 const rbacController = require('../controllers/rbacController');
 const authMiddleware = require('../middlewares/authMiddleware');
-// You would likely import an 'authorize' middleware here as well
-// const authorize = require('../middlewares/authorizeMiddleware');
+const authorizeMiddleware = require('../middlewares/authorizeMiddleware');
 
 const router = express.Router();
 
 router.use(authMiddleware.protect);
 
-// Endpoint to create a new user (admin/manager only)
-// Example usage: router.post('/create', authorize('user:create'), rbacController.create);
-router.post('/create', rbacController.create); 
+// Only users with specific permissions can access these routes
+router.post('/', authorizeMiddleware('user:create'), rbacController.create);
+router.patch('/', authorizeMiddleware('user:update'), rbacController.update);
+router.post('/delete', authorizeMiddleware('user:delete'), rbacController.delete);
+router.get('/', authorizeMiddleware('user:view'), rbacController.getAllUsers);
 
 module.exports = router;
