@@ -15,7 +15,7 @@ const authController = {
         }
 
         const { email, password } = request.body;
-        const user = await userDao.findByEmail(email);
+        const user = await userDao.findByEmail(email);        
         
         // Logic below ensures backward compatibility if role/adminId missing
         user.role = user.role ? user.role : ADMIN_ROLE;
@@ -23,6 +23,7 @@ const authController = {
 
         const isPasswordMatched = await bcrypt.compare(password, user.password);
         if (user && isPasswordMatched) {
+            user.role = user.role ? user.role : ADMIN_ROLE;
             const token = jwt.sign({
                 name: user.name,
                 email: user.email,

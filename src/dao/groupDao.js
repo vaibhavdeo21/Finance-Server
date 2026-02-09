@@ -16,7 +16,7 @@ const groupDao = {
 
     addMembers: async (groupId, ...membersEmails) => {
         return await Group.findByIdAndUpdate(groupId, {
-            $addToSet: { membersEmail: { $each: membersEmails }}
+            $addToSet: { membersEmail: { $each: membersEmails } }
         }, { new: true });
     },
 
@@ -45,6 +45,21 @@ const groupDao = {
         return await Group.find({ "paymentStatus.isPaid": status });
     },
 
+    getGroupsPaginated: async (email, limit, skip) => {
+        const [groups, totalCount] = await Promise.all([
+            // Query 1: Fetch specific page
+            Group.find({ membersEmail: email })
+                .sort({ createdAt: -1 }) // Sort by newest first
+                .skip(skip)
+                .limit(limit),
+
+            // Query 2: Count total records for metadata
+            Group.countDocuments({ membersEmail: email })
+        ]);
+
+        return { groups, totalCount };
+    },
+    
     getAuditLog: async (groupId) => {
         const group = await Group.findById(groupId).select('paymentStatus.date');
         return group ? group.paymentStatus.date : null;

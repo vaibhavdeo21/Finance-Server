@@ -71,28 +71,30 @@ const groupController = {
 
     getGroupsByUser: async (request, response) => {
         try {
-            const user = request.user;
-            
-            // BUG FIX: If user is a child account (has adminId), fetch groups owned by their Admin.
-            // Otherwise (if adminId is null or same as _id), fetch their own groups.
-            let targetEmail = user.email;
-            if (user.adminId && user.adminId !== user._id) {
-                const adminUser = await userDao.findById(user.adminId);
-                if (adminUser) {
-                    targetEmail = adminUser.email;
+            const email = request.user.email;
+
+            // 1. Extract query params with defaults
+            const page = parseInt(request.query.page) || 1;
+            const limit = parseInt(request.query.limit) || 10;
+            const skip = (page - 1) * limit;
+
+            // 2. Call new paginated DAO method
+            const { groups, totalCount } = await groupDao.getGroupsPaginated(email, limit, skip);
+
+            // 3. Return structured response with metadata
+            response.status(200).json({
+                groups: groups,
+                pagination: {
+                    totalItems: totalCount,
+                    totalPages: Math.ceil(totalCount / limit),
+                    currentPage: page,
+                    itemsPerPage: limit
                 }
-            }
-            
-            // Fetch groups where user is explicitly a member OR where their Parent Admin is the owner
-            const groups = await groupDao.getGroupsForUser(user.email, targetEmail);
-            
-            response.status(200).json(groups);
+            });
         } catch (error) {
-            console.error(error);
             response.status(500).json({ message: "Error fetching groups" });
         }
     },
-
     getGroupsByPaymentStatus: async (request, response) => {
         try {
             const { isPaid } = request.query;
