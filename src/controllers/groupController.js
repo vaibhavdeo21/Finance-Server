@@ -72,16 +72,22 @@ const groupController = {
     getGroupsByUser: async (request, response) => {
         try {
             const email = request.user.email;
-
-            // 1. Extract query params with defaults
+            
+            // Pagination Logic
             const page = parseInt(request.query.page) || 1;
             const limit = parseInt(request.query.limit) || 10;
             const skip = (page - 1) * limit;
 
-            // 2. Call new paginated DAO method
-            const { groups, totalCount } = await groupDao.getGroupsPaginated(email, limit, skip);
+            // Sorting Logic (New)
+            const sortBy = request.query.sortBy || 'newest';
+            let sortOptions = { createdAt: -1 }; // Default: Newest first
+            
+            if (sortBy === 'oldest') {
+                sortOptions = { createdAt: 1 };
+            }
 
-            // 3. Return structured response with metadata
+            const { groups, totalCount } = await groupDao.getGroupsPaginated(email, limit, skip, sortOptions);
+
             response.status(200).json({
                 groups: groups,
                 pagination: {
@@ -92,9 +98,11 @@ const groupController = {
                 }
             });
         } catch (error) {
+            console.error(error);
             response.status(500).json({ message: "Error fetching groups" });
         }
     },
+
     getGroupsByPaymentStatus: async (request, response) => {
         try {
             const { isPaid } = request.query;
