@@ -1,4 +1,6 @@
 const Razorpay = require ('razorpay');
+const crypto = require('crypto');
+
 const { CREDIT_TO_PAISA_MAPPING } = require('../constants/paymentConstants');
 
 const razorpayClient = new Razorpay ({
@@ -35,7 +37,22 @@ const paymentsController = {
     },
     verifyOrder: async (request, response) => {
         try{
+            const {
+                razorpay_order_id, 
+                razorpay_payment_id, 
+                razorpay_signature,
+                credits
+            } = request.body;
+
+            const body = razorpay_order_id + "|" + razorpay_payment_id;
+            const  expectedSignature = crypto
+                .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET) //creates unique digital print of secret key
+                .update(body.toString()) //feeds both HMAC  and body into hashing function
+                .digest('hex'); //whatever string is generated is converted to hexadecimal format
             
+            if(expectedSignature === razorpay_signature){
+                return response.status(400).json({ message: 'Invalid transaction'});
+            }
         } catch (error){
             return response.status(500).json({ error: 'Internal Server error.' });
         }
