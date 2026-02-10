@@ -14,10 +14,14 @@ const groupSchema = new mongoose.Schema({
     membersEmail: [String],
     thumbnail: { type: String, required: false },
     paymentStatus: {
-        amount: Number,
-        currency: String,
-        date: Date,
+        amount: { type: Number, default: 0 },
+        currency: { type: String, default: 'INR' },
+        date: { type: Date },
         isPaid: { type: Boolean, default: false },
+        // NEW: Tracks if a user has requested a settlement
+        isPendingApproval: { type: Boolean, default: false },
+        // NEW: Stores the email of the user who requested the settlement
+        requestedBy: { type: String, default: null }
     }
 });
 

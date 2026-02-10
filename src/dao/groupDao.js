@@ -7,16 +7,19 @@ const groupDao = {
     },
 
     updateGroup: async (data) => {
-        const { groupId, name, description, thumbnail, adminEmail, paymentStatus } = data;
+        const { groupId, ...updateData } = data; // Use rest operator to capture all fields
 
-        return await Group.findByIdAndUpdate(groupId, {
-            name, description, thumbnail, adminEmail, paymentStatus,
-        }, { new: true });
+        // findByIdAndUpdate with updateData will only update the fields provided in the request
+        return await Group.findByIdAndUpdate(
+            groupId,
+            { $set: updateData },
+            { new: true }
+        );
     },
 
     addMembers: async (groupId, ...membersEmails) => {
         return await Group.findByIdAndUpdate(groupId, {
-            $addToSet: { membersEmail: { $each: membersEmails }}
+            $addToSet: { membersEmail: { $each: membersEmails } }
         }, { new: true });
     },
 
@@ -54,8 +57,8 @@ const groupDao = {
         // Query allows hierarchy: User email match OR Admin workspace match
         const query = {
             $or: [
-                { membersEmail: email }, 
-                { adminId: adminId } 
+                { membersEmail: email },
+                { adminId: adminId }
             ]
         };
 

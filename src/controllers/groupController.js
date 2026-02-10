@@ -5,15 +5,16 @@ const groupController = {
 
     create: async (request, response) => {
         try {
-            const user = request.user;
+            const user = request.user; // Contains _id and email from your authMiddleware
             const { name, description, membersEmail, thumbnail } = request.body;
             const userInfo = await userDao.findByEmail(user.email);
 
-            if (!userInfo.credits){
-                userInfo.credits=1;
+            // Credit check logic...
+            if (!userInfo.credits) {
+                userInfo.credits = 1;
             }
 
-            if (userInfo.credits == 0){
+            if (userInfo.credits == 0) {
                 return response.status(400).json({
                     message: 'You do not have enough credits to perform this operation'
                 });
@@ -24,29 +25,33 @@ const groupController = {
                 allMembers = [...new Set([...allMembers, ...membersEmail])];
             }
 
+            // UPDATED: Pass adminId to match your required Schema
             const newGroup = await groupDao.createGroup({
                 name,
                 description,
                 adminEmail: user.email,
+                adminId: user._id, // CRITICAL: Extracting _id from the authenticated user
                 membersEmail: allMembers,
                 thumbnail,
                 paymentStatus: {
                     amount: 0,
                     currency: 'INR',
                     date: Date.now(),
-                    isPaid: false
+                    isPaid: false,
+                    isPendingApproval: false, // Ensure defaults are set for new flow
+                    requestedBy: null         // Ensure defaults are set for new flow
                 }
             });
 
             userInfo.credits -= 1;
-            userInfo.save();
-            
+            await userInfo.save();
+
             response.status(201).json({
                 message: 'Group created successfully',
                 groupId: newGroup._id
             });
         } catch (error) {
-            console.error(error);
+            console.error("Group Create Error:", error);
             response.status(500).json({ message: "Internal server error" });
         }
     },
@@ -86,24 +91,24 @@ const groupController = {
     getGroupsByUser: async (request, response) => {
         try {
             // Standardizing access by using both email and adminId from JWT
-            const { email, adminId } = request.user; 
-            
+            const { email, adminId } = request.user;
+
             const page = parseInt(request.query.page) || 1;
             const limit = parseInt(request.query.limit) || 10;
             const skip = (page - 1) * limit;
             const sortBy = request.query.sortBy || 'newest';
-            
-            let sortOptions = { createdAt: -1 }; 
+
+            let sortOptions = { createdAt: -1 };
             if (sortBy === 'oldest') {
                 sortOptions = { createdAt: 1 };
             }
 
             // DAO now accepts adminId to support hierarchical viewing
             const { groups, totalCount } = await groupDao.getGroupsPaginated(
-                email, 
-                adminId, 
-                limit, 
-                skip, 
+                email,
+                adminId,
+                limit,
+                skip,
                 sortOptions
             );
 
