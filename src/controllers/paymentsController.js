@@ -35,7 +35,7 @@ const paymentsController = {
     },
     verifyOrder: async (request, response) => {
         try{
-
+            
         } catch (error){
             return response.status(500).json({ error: 'Internal Server error.' });
         }
