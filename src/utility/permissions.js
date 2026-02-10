@@ -9,13 +9,14 @@ const permissions = {
         'group:create',
         'group:update',
         'group:delete',
-        'group:view'
+        'group:view',
+        'payment:create'
     ],
     [MANAGER_ROLE]: [
         'user:view',
         'group:create',
         'group:update',
-        'group:view'
+        'group:view',
     ],
     [VIEWER_ROLE]: [
         'user:view',

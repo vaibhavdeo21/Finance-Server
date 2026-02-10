@@ -50,13 +50,21 @@ const groupDao = {
     },
 
     // Updated with Sorting Logic
-    getGroupsPaginated: async (email, limit, skip, sortOptions = { createdAt: -1 }) => {
+    getGroupsPaginated: async (email, adminId, limit, skip, sortOptions = { createdAt: -1 }) => {
+        // Query allows hierarchy: User email match OR Admin workspace match
+        const query = {
+            $or: [
+                { membersEmail: email }, 
+                { adminId: adminId } 
+            ]
+        };
+
         const [groups, totalCount] = await Promise.all([
-            Group.find({ membersEmail: email })
-                .sort(sortOptions) // Apply sorting here
+            Group.find(query)
+                .sort(sortOptions)
                 .skip(skip)
                 .limit(limit),
-            Group.countDocuments({ membersEmail: email })
+            Group.countDocuments(query)
         ]);
 
         return { groups, totalCount };

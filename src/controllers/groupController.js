@@ -7,6 +7,17 @@ const groupController = {
         try {
             const user = request.user;
             const { name, description, membersEmail, thumbnail } = request.body;
+            const userInfo = await userDao.findByEmail(user.email);
+
+            if (!userInfo.credits){
+                userInfo.credits=1;
+            }
+
+            if (userInfo.credits == 0){
+                return response.status(400).json({
+                    message: 'You do not have enough credits to perform this operation'
+                });
+            }
 
             let allMembers = [user.email];
             if (membersEmail && Array.isArray(membersEmail)) {
@@ -27,6 +38,9 @@ const groupController = {
                 }
             });
 
+            userInfo.credits -= 1;
+            userInfo.save();
+            
             response.status(201).json({
                 message: 'Group created successfully',
                 groupId: newGroup._id
@@ -71,22 +85,27 @@ const groupController = {
 
     getGroupsByUser: async (request, response) => {
         try {
-            const email = request.user.email;
+            // Standardizing access by using both email and adminId from JWT
+            const { email, adminId } = request.user; 
             
-            // Pagination Logic
             const page = parseInt(request.query.page) || 1;
             const limit = parseInt(request.query.limit) || 10;
             const skip = (page - 1) * limit;
-
-            // Sorting Logic (New)
             const sortBy = request.query.sortBy || 'newest';
-            let sortOptions = { createdAt: -1 }; // Default: Newest first
             
+            let sortOptions = { createdAt: -1 }; 
             if (sortBy === 'oldest') {
                 sortOptions = { createdAt: 1 };
             }
 
-            const { groups, totalCount } = await groupDao.getGroupsPaginated(email, limit, skip, sortOptions);
+            // DAO now accepts adminId to support hierarchical viewing
+            const { groups, totalCount } = await groupDao.getGroupsPaginated(
+                email, 
+                adminId, 
+                limit, 
+                skip, 
+                sortOptions
+            );
 
             response.status(200).json({
                 groups: groups,
