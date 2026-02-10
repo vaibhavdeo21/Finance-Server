@@ -1,12 +1,12 @@
 const Expense = require('../model/expense');
 const Group = require('../model/group');
+const User = require('../model/users'); // Ensure this matches your filename in /model/
 
 const expenseController = {
     addExpense: async (request, response) => {
         try {
             const { groupId, description, amount, payerEmail, splits } = request.body;
 
-            // Validates that the sum of custom splits matches the total amount
             const totalSplit = splits.reduce((acc, curr) => acc + curr.amount, 0);
             if (Math.abs(totalSplit - amount) > 0.1) {
                 return response.status(400).json({ message: "Split amounts do not match total" });
@@ -25,54 +25,71 @@ const expenseController = {
         try {
             const { groupId } = request.params;
             const expenses = await Expense.find({ groupId }).sort({ date: -1 });
-            response.status(200).json(expenses);
+
+            // ENRICHMENT: Fetch names for Recent Activity
+            const payerEmails = [...new Set(expenses.map(exp => exp.payerEmail))];
+            const users = await User.find({ email: { $in: payerEmails } }, 'name email');
+
+            const enrichedExpenses = expenses.map(expense => {
+                const user = users.find(u => u.email === expense.payerEmail);
+                return {
+                    ...expense.toObject(),
+                    payerName: user ? user.name : expense.payerEmail.split('@')[0]
+                };
+            });
+
+            response.status(200).json(enrichedExpenses);
         } catch (error) {
+            console.error("Fetch Expenses Error:", error);
             response.status(500).json({ message: "Error fetching expenses" });
         }
     },
 
-    // src/controllers/expenseController.js
-getGroupSummary: async (request, response) => {
-    try {
-        const { groupId } = request.params;
-        const [expenses, group] = await Promise.all([
-            Expense.find({ groupId, isSettled: false }),
-            Group.findById(groupId)
-        ]);
+    getGroupSummary: async (request, response) => {
+        try {
+            const { groupId } = request.params;
+            const expenses = await Expense.find({ groupId, isSettled: false });
 
-        // Map emails to names from the group/user data for the frontend
-        const userMap = {}; // You can fetch names from the Users collection if needed
-        
-        let balances = {};
-        expenses.forEach(expense => {
-            if (!balances[expense.payerEmail]) balances[expense.payerEmail] = 0;
-            balances[expense.payerEmail] += expense.amount;
+            let emailBalances = {};
+            expenses.forEach(expense => {
+                if (!emailBalances[expense.payerEmail]) emailBalances[expense.payerEmail] = 0;
+                emailBalances[expense.payerEmail] += expense.amount;
 
-            expense.splits.forEach(split => {
-                if (!balances[split.email]) balances[split.email] = 0;
-                balances[split.email] -= split.amount;
+                expense.splits.forEach(split => {
+                    if (!emailBalances[split.email]) emailBalances[split.email] = 0;
+                    emailBalances[split.email] -= split.amount;
+                });
             });
-        });
 
-        // Optional: Convert email keys to object containing { name, amount } 
-        // by looking up names in your database.
-        response.status(200).json({ balances });
-    } catch (error) {
-        response.status(500).json({ message: "Error calculating summary" });
-    }
-},
+            // ENRICHMENT: Fetch names for Net Balances
+            const emails = Object.keys(emailBalances);
+            const users = await User.find({ email: { $in: emails } }, 'name email');
+            
+            const balances = {};
+            emails.forEach(email => {
+                const userData = users.find(u => u.email === email);
+                balances[email] = {
+                    amount: emailBalances[email],
+                    name: userData ? userData.name : email.split('@')[0]
+                };
+            });
+
+            response.status(200).json({ balances });
+        } catch (error) {
+            console.error("Summary Error:", error);
+            response.status(500).json({ message: "Error calculating summary" });
+        }
+    },
 
     settleGroup: async (request, response) => {
         try {
             const { groupId } = request.body;
 
-            // Mark all expenses in this group as settled
             await Expense.updateMany(
                 { groupId: groupId, isSettled: false },
                 { $set: { isSettled: true } }
             );
 
-            // Update Group status to paid/settled
             await Group.findByIdAndUpdate(groupId, {
                 paymentStatus: {
                     amount: 0,
