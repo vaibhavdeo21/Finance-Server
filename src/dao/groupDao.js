@@ -7,9 +7,8 @@ const groupDao = {
     },
 
     updateGroup: async (data) => {
-        const { groupId, ...updateData } = data; // Use rest operator to capture all fields
+        const { groupId, ...updateData } = data; 
 
-        // findByIdAndUpdate with updateData will only update the fields provided in the request
         return await Group.findByIdAndUpdate(
             groupId,
             { $set: updateData },
@@ -17,25 +16,46 @@ const groupDao = {
         );
     },
 
+    // UPDATED: Now adds members as objects with default 'viewer' role
     addMembers: async (groupId, ...membersEmails) => {
+        const newMemberObjects = membersEmails.map(email => ({
+            email: email,
+            role: 'viewer' // Default role assigned when adding via group DAO
+        }));
+
         return await Group.findByIdAndUpdate(groupId, {
-            $addToSet: { membersEmail: { $each: membersEmails } }
+            $addToSet: { 
+                members: { $each: newMemberObjects }, // New object structure
+                membersEmail: { $each: membersEmails } // Maintaining legacy array
+            }
         }, { new: true });
     },
 
+    // UPDATED: Removes members from both the object array and legacy string array
     removeMembers: async (groupId, ...membersEmails) => {
         return await Group.findByIdAndUpdate(groupId, {
-            $pull: { membersEmail: { $in: membersEmails } }
+            $pull: { 
+                members: { email: { $in: membersEmails } }, // Pull from object array
+                membersEmail: { $in: membersEmails }        // Pull from string array
+            }
         }, { new: true });
     },
 
+    // UPDATED: Search by email within the new object structure
     getGroupByEmail: async (email) => {
-        return await Group.find({ membersEmail: email });
+        return await Group.find({ 
+            $or: [
+                { "members.email": email },
+                { membersEmail: email }
+            ]
+        });
     },
 
+    // UPDATED: Support for hierarchical queries including member objects
     getGroupsForUser: async (userEmail, adminEmail) => {
         return await Group.find({
             $or: [
+                { "members.email": userEmail },
                 { membersEmail: userEmail },
                 { adminEmail: userEmail },
                 { adminEmail: adminEmail }
@@ -52,13 +72,13 @@ const groupDao = {
         return group ? group.paymentStatus.date : null;
     },
 
-    // Updated with Sorting Logic
+    // UPDATED: Standardizing pagination to look into the members.email field
     getGroupsPaginated: async (email, adminId, limit, skip, sortOptions = { createdAt: -1 }) => {
-        // Query allows hierarchy: User email match OR Admin workspace match
         const query = {
             $or: [
-                { membersEmail: email },
-                { adminId: adminId }
+                { "members.email": email }, // Match within the new object array
+                { membersEmail: email },      // Legacy support for string array
+                { adminId: adminId }          // Match if user is the admin
             ]
         };
 
@@ -66,7 +86,8 @@ const groupDao = {
             Group.find(query)
                 .sort(sortOptions)
                 .skip(skip)
-                .limit(limit),
+                .limit(limit)
+                .populate('adminId', 'name email'), // Optional: brings in admin details
             Group.countDocuments(query)
         ]);
 

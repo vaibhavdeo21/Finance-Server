@@ -2,12 +2,14 @@ const groupDao = require("../dao/groupDao");
 const userDao = require("../dao/userDao");
 const Expense = require('../model/expense');
 const Group = require('../model/group');
+const mongoose = require('mongoose');
 
 const groupController = {
 
+    // src/controllers/groupController.js
     create: async (request, response) => {
         try {
-            const user = request.user; // Contains _id and email from your authMiddleware
+            const user = request.user; // From your authMiddleware
             const { name, description, membersEmail, thumbnail } = request.body;
             const userInfo = await userDao.findByEmail(user.email);
 
@@ -22,26 +24,40 @@ const groupController = {
                 });
             }
 
-            let allMembers = [user.email];
+            // UPDATED: The creator is now explicitly added as 'admin'
+            let memberObjects = [{ email: user.email.toLowerCase(), role: 'admin' }];
+
             if (membersEmail && Array.isArray(membersEmail)) {
-                allMembers = [...new Set([...allMembers, ...membersEmail])];
+                // Remove duplicates and exclude the creator
+                const uniqueEmails = [...new Set(membersEmail)]
+                    .map(e => e.toLowerCase())
+                    .filter(e => e !== user.email.toLowerCase());
+
+                const extraMembers = uniqueEmails.map(email => ({
+                    email: email,
+                    role: 'viewer' // Default role for newly invited members
+                }));
+                memberObjects = [...memberObjects, ...extraMembers];
             }
 
-            // UPDATED: Pass adminId to match your required Schema
+            // Maintain legacy array for search/compatibility
+            let allMembersEmail = memberObjects.map(m => m.email);
+
             const newGroup = await groupDao.createGroup({
                 name,
                 description,
-                adminEmail: user.email,
-                adminId: user._id, // CRITICAL: Extracting _id from the authenticated user
-                membersEmail: allMembers,
+                adminEmail: user.email.toLowerCase(),
+                adminId: user._id,
+                members: memberObjects, // Array of objects with 'admin', 'manager', or 'viewer'
+                membersEmail: allMembersEmail,
                 thumbnail,
                 paymentStatus: {
                     amount: 0,
                     currency: 'INR',
                     date: Date.now(),
                     isPaid: false,
-                    isPendingApproval: false, // Ensure defaults are set for new flow
-                    requestedBy: null         // Ensure defaults are set for new flow
+                    isPendingApproval: false,
+                    requestedBy: null
                 }
             });
 
@@ -70,7 +86,6 @@ const groupController = {
         }
     },
 
-
     deleteGroup: async (request, response) => {
         try {
             const { groupId } = request.params;
@@ -82,9 +97,9 @@ const groupController = {
                 return response.status(404).json({ message: "Group not found" });
             }
 
-            // Authorization Check: Only Admin can delete
+            // Authorization Check: Only the primary Admin (Owner) can delete the entire group
             if (group.adminId.toString() !== userId.toString()) {
-                return response.status(403).json({ message: "Only the Group Admin can delete this group" });
+                return response.status(403).json({ message: "Only the Group Owner can delete this group" });
             }
 
             // 1. Delete all expenses associated with this group first
@@ -102,11 +117,114 @@ const groupController = {
 
     addMembers: async (request, response) => {
         try {
-            const { groupId, emails } = request.body;
-            const updatedGroup = await groupDao.addMembers(groupId, ...emails);
+            const { groupId } = request.params;
+            const { email, role } = request.body; // Aligned with your frontend ManageUsers.jsx
+
+            const group = await Group.findById(groupId);
+            if (!group) return response.status(404).json({ message: "Group not found" });
+
+            // Create new member object based on assigned role
+            const newMember = {
+                email: email.toLowerCase(),
+                role: role || 'viewer'
+            };
+
+            const updatedGroup = await Group.findByIdAndUpdate(
+                groupId,
+                {
+                    $addToSet: {
+                        members: newMember,
+                        membersEmail: email.toLowerCase()
+                    }
+                },
+                { new: true }
+            );
+
             response.status(200).json(updatedGroup);
         } catch (error) {
-            response.status(500).json({ message: "Error adding members" });
+            console.error("Add Member Error:", error);
+            response.status(500).json({ message: "Error adding member" });
+        }
+    },
+
+    // src/controllers/groupController.js
+
+    updateMemberRole: async (request, response) => {
+        try {
+            const { groupId } = request.params;
+            const { email, role } = request.body;
+            const userId = request.user._id;
+
+            const group = await Group.findById(groupId);
+            if (!group) return response.status(404).json({ message: "Group not found" });
+
+            if (group.adminId.toString() !== userId.toString()) {
+                return response.status(403).json({ message: "Unauthorized" });
+            }
+
+            // 1. Remove the user if they exist as a string OR an object
+            await Group.findByIdAndUpdate(groupId, {
+                $pull: { members: { email: email.toLowerCase() } }
+            });
+            await Group.findByIdAndUpdate(groupId, {
+                $pull: { members: email.toLowerCase() }
+            });
+
+            // 2. Add them back as a proper object with the new role
+            const updatedGroup = await Group.findByIdAndUpdate(
+                groupId,
+                {
+                    $addToSet: {
+                        members: { email: email.toLowerCase(), role: role }
+                    }
+                },
+                { new: true }
+            );
+
+            response.status(200).json({ message: `Success`, group: updatedGroup });
+        } catch (error) {
+            console.error(error);
+            response.status(500).json({ message: "Error updating role" });
+        }
+    },
+
+    removeMember: async (request, response) => {
+        try {
+            const { groupId } = request.params;
+            const { email } = request.body;
+            const userId = request.user._id;
+            const userEmail = request.user.email;
+
+            const group = await Group.findById(groupId);
+            if (!group) return response.status(404).json({ message: "Group not found" });
+
+            // Authorization Check: Admins or Managers can remove members
+            const currentUser = group.members.find(m => m.email === userEmail);
+            const isAuthorized = group.adminId.toString() === userId.toString() || currentUser?.role === 'manager';
+
+            if (!isAuthorized) {
+                return response.status(403).json({ message: "Unauthorized: Only admins or managers can remove members." });
+            }
+
+            // SAFETY CHECK: Prevent removing the owner
+            if (email.toLowerCase() === group.adminEmail.toLowerCase()) {
+                return response.status(400).json({ message: "The Group Owner cannot be removed." });
+            }
+
+            const updatedGroup = await Group.findByIdAndUpdate(
+                groupId,
+                {
+                    $pull: {
+                        members: { email: email.toLowerCase() },
+                        membersEmail: email.toLowerCase()
+                    }
+                },
+                { new: true }
+            );
+
+            response.status(200).json({ message: "Member removed", group: updatedGroup });
+        } catch (error) {
+            response.status(500).json({ message: "Error removing member" });
         }
     },
 
@@ -122,8 +240,8 @@ const groupController = {
 
     getGroupsByUser: async (request, response) => {
         try {
-            // Standardizing access by using both email and adminId from JWT
-            const { email, adminId } = request.user;
+            const { email, _id } = request.user;
+            const adminId = _id;
 
             const page = parseInt(request.query.page) || 1;
             const limit = parseInt(request.query.limit) || 10;
@@ -135,7 +253,6 @@ const groupController = {
                 sortOptions = { createdAt: 1 };
             }
 
-            // DAO now accepts adminId to support hierarchical viewing
             const { groups, totalCount } = await groupDao.getGroupsPaginated(
                 email,
                 adminId,
@@ -183,15 +300,28 @@ const groupController = {
     updateBudgetGoal: async (request, response) => {
         try {
             const { groupId } = request.params;
-            const { budgetGoal } = request.body; // Ensure this matches the frontend key
+            const { budgetGoal } = request.body;
+            const userEmail = request.user.email;
+
+            const group = await Group.findById(groupId);
+            if (!group) return response.status(404).json({ message: "Group not found" });
+
+            // 2. Real-time Role Check: Admin or Manager allowed
+            const member = group.members.find(m => m.email === userEmail);
+            const hasPermission =
+                member?.role === 'admin' ||
+                member?.role === 'manager' ||
+                group.adminEmail === userEmail;
+
+            if (!hasPermission) {
+                return response.status(403).json({ message: "Unauthorized: Only admins and managers can set budgets" });
+            }
 
             const updatedGroup = await Group.findByIdAndUpdate(
                 groupId,
                 { budgetGoal: Number(budgetGoal) },
-                { new: true } // Returns the updated document
+                { new: true }
             );
-
-            if (!updatedGroup) return response.status(404).json({ message: "Group not found" });
 
             response.status(200).json({ message: "Budget updated", budgetGoal: updatedGroup.budgetGoal });
         } catch (error) {

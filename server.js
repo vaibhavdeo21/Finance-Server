@@ -23,7 +23,17 @@ const corsOption = {
 const app = express();
 
 app.use(cors(corsOption));
-app.use(express.json());
+
+// UPDATED: Conditionally apply express.json()
+// We skip parsing for the webhook so we can verify the raw signature.
+app.use((req, res, next) => {
+    if (req.originalUrl.startsWith('/payments/webhook')) {
+        next();
+    } else {
+        express.json()(req, res, next);
+    }
+});
+
 app.use(cookieParser());
 
 app.use('/auth', authRoutes);

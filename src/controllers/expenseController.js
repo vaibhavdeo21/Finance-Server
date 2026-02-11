@@ -4,21 +4,47 @@ const Group = require('../model/group');
 const User = require('../model/users'); // Ensure this matches your filename in /model/
 
 const expenseController = {
+    // src/controllers/expenseController.js
+
     addExpense: async (request, response) => {
         try {
             const { groupId, description, amount, payerEmail, splits } = request.body;
+            const userEmail = request.user.email;
 
-            const totalSplit = splits.reduce((acc, curr) => acc + curr.amount, 0);
-            if (Math.abs(totalSplit - amount) > 0.1) {
-                return response.status(400).json({ message: "Split amounts do not match total" });
+            const group = await Group.findById(groupId);
+            if (!group) return response.status(404).json({ message: "Group not found" });
+
+            // HYBRID CHECK: Handle both old string arrays and new object arrays
+            const member = group.members.find(m =>
+                (typeof m === 'string' ? m : m.email) === userEmail
+            );
+
+            // Resolve the role safely
+            const userRole = typeof member === 'object' ? member.role : 'viewer';
+
+            const canAddExpense =
+                userRole === 'admin' ||
+                userRole === 'manager' ||
+                group.adminEmail === userEmail;
+
+            if (!canAddExpense) {
+                return response.status(403).json({ message: "Access Denied: You do not have permission to add expenses." });
             }
 
-            const newExpense = new Expense({ groupId, description, amount, payerEmail, splits });
-            await newExpense.save();
+            const newExpense = new Expense({
+                groupId,
+                description,
+                amount,
+                payerEmail,
+                splits,
+                date: new Date()
+            });
 
-            response.status(201).json({ message: "Expense added", expense: newExpense });
+            await newExpense.save();
+            response.status(201).json(newExpense);
         } catch (error) {
-            response.status(500).json({ message: "Internal server error" });
+            console.error("Add Expense Error:", error);
+            response.status(500).json({ message: "Internal Server Error: Check member data format" });
         }
     },
 
@@ -124,34 +150,54 @@ const expenseController = {
     },
 
     // 2. Admin calls this after verifying the money was received
+    // src/controllers/expenseController.js
+
     // Inside expenseController.js
     confirmSettlement: async (request, response) => {
         try {
             const { groupId } = request.body;
+            const userEmail = request.user.email;
+
+            // 1. Fetch the group to check real-time permissions from the database
             const group = await Group.findById(groupId);
+            if (!group) return response.status(404).json({ message: "Group not found" });
+
+            // 2. Permission Check: Verify if the user has an 'admin' or 'manager' role in the members array
+            const member = group.members.find(m => m.email === userEmail);
+
+            // UPDATED: Now checks for 'admin' OR 'manager' OR if they are the primary adminEmail
+            const hasManagerRights =
+                member?.role === 'admin' ||
+                member?.role === 'manager' ||
+                group.adminEmail === userEmail;
+
+            if (!hasManagerRights) {
+                return response.status(403).json({
+                    message: "Access Denied: You do not have the required permissions to confirm settlements."
+                });
+            }
+
+            // --- START YOUR ORIGINAL LOGIC ---
             const settlementBatchId = new mongoose.Types.ObjectId();
             const payerEmail = group.paymentStatus.requestedBy;
 
-            // 1. Calculate exactly what this specific person owed before clearing
             const expensesToSettle = await Expense.find({ groupId: groupId, isSettled: false });
 
             let amountPaidByRequester = 0;
             expensesToSettle.forEach(exp => {
-                // Find the split belonging to the person who is paying
                 const userSplit = exp.splits.find(s => s.email === payerEmail);
                 if (userSplit) {
                     amountPaidByRequester += userSplit.amount;
                 }
             });
 
-            // 2. Update expenses with the Batch ID and the specific Split Amount paid
             await Expense.updateMany(
                 { groupId: groupId, isSettled: false },
                 {
                     $set: {
                         isSettled: true,
                         settledBy: payerEmail,
-                        paidAmount: amountPaidByRequester, // Store the specific split total
+                        paidAmount: amountPaidByRequester,
                         settlementBatchId: settlementBatchId,
                         settledAt: Date.now()
                     }
@@ -159,15 +205,25 @@ const expenseController = {
             );
 
             await Group.findByIdAndUpdate(groupId, {
-                paymentStatus: { amount: 0, isPaid: true, isPendingApproval: false, date: Date.now() }
+                paymentStatus: {
+                    amount: 0,
+                    isPaid: true,
+                    isPendingApproval: false,
+                    date: Date.now(),
+                    requestedBy: payerEmail
+                }
             });
+            // --- END YOUR ORIGINAL LOGIC ---
 
-            response.status(200).json({ message: "Settlement confirmed", amountPaid: amountPaidByRequester });
+            response.status(200).json({
+                message: "Settlement confirmed",
+                amountPaid: amountPaidByRequester
+            });
         } catch (error) {
+            console.error("Confirm Settlement Error:", error);
             response.status(500).json({ message: "Error confirming settlement" });
         }
     },
-    // src/controllers/expenseController.js
 
     reopenGroup: async (request, response) => {
         try {
@@ -196,9 +252,6 @@ const expenseController = {
         }
     },
 
-    // src/controllers/expenseController.js
-
-    // src/controllers/expenseController.js
 
     getDashboardStats: async (request, response) => {
         try {
