@@ -16,4 +16,8 @@ router.get('/my-groups', authorizeMiddleware('group:view'), groupController.getG
 router.get('/status', authorizeMiddleware('group:view'), groupController.getGroupsByPaymentStatus);
 router.get('/:groupId/audit', authorizeMiddleware('group:view'), groupController.getAudit);
 
+router.patch('/:groupId/budget', authMiddleware.protect, groupController.updateBudgetGoal);
+
+router.delete('/:groupId', authMiddleware.protect, groupController.deleteGroup);
+
 module.exports = router;

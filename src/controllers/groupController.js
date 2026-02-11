@@ -1,5 +1,7 @@
 const groupDao = require("../dao/groupDao");
 const userDao = require("../dao/userDao");
+const Expense = require('../model/expense');
+const Group = require('../model/group');
 
 const groupController = {
 
@@ -65,6 +67,36 @@ const groupController = {
             response.status(200).json(updatedGroup);
         } catch (error) {
             response.status(500).json({ message: "Error updating group" });
+        }
+    },
+
+
+    deleteGroup: async (request, response) => {
+        try {
+            const { groupId } = request.params;
+            const userId = request.user._id;
+
+            const group = await Group.findById(groupId);
+
+            if (!group) {
+                return response.status(404).json({ message: "Group not found" });
+            }
+
+            // Authorization Check: Only Admin can delete
+            if (group.adminId.toString() !== userId.toString()) {
+                return response.status(403).json({ message: "Only the Group Admin can delete this group" });
+            }
+
+            // 1. Delete all expenses associated with this group first
+            await Expense.deleteMany({ groupId: groupId });
+
+            // 2. Delete the group itself
+            await Group.findByIdAndDelete(groupId);
+
+            response.status(200).json({ message: "Group and all associated expenses deleted successfully" });
+        } catch (error) {
+            console.error("Delete Group Error:", error);
+            response.status(500).json({ message: "Error deleting group" });
         }
     },
 
@@ -145,6 +177,25 @@ const groupController = {
             response.status(200).json({ lastSettled });
         } catch (error) {
             response.status(500).json({ message: "Error fetching audit log" });
+        }
+    },
+
+    updateBudgetGoal: async (request, response) => {
+        try {
+            const { groupId } = request.params;
+            const { budgetGoal } = request.body; // Ensure this matches the frontend key
+
+            const updatedGroup = await Group.findByIdAndUpdate(
+                groupId,
+                { budgetGoal: Number(budgetGoal) },
+                { new: true } // Returns the updated document
+            );
+
+            if (!updatedGroup) return response.status(404).json({ message: "Group not found" });
+
+            response.status(200).json({ message: "Budget updated", budgetGoal: updatedGroup.budgetGoal });
+        } catch (error) {
+            response.status(500).json({ message: "Server error updating budget" });
         }
     }
 };

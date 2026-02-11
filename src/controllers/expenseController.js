@@ -1,4 +1,4 @@
-const mongoose = require('mongoose'); 
+const mongoose = require('mongoose');
 const Expense = require('../model/expense');
 const Group = require('../model/group');
 const User = require('../model/users'); // Ensure this matches your filename in /model/
@@ -129,15 +129,29 @@ const expenseController = {
         try {
             const { groupId } = request.body;
             const group = await Group.findById(groupId);
-            const settlementBatchId = new mongoose.Types.ObjectId(); // Unique ID for this specific settlement event
+            const settlementBatchId = new mongoose.Types.ObjectId();
+            const payerEmail = group.paymentStatus.requestedBy;
 
-            // Update expenses to include the batch ID and who settled them
+            // 1. Calculate exactly what this specific person owed before clearing
+            const expensesToSettle = await Expense.find({ groupId: groupId, isSettled: false });
+
+            let amountPaidByRequester = 0;
+            expensesToSettle.forEach(exp => {
+                // Find the split belonging to the person who is paying
+                const userSplit = exp.splits.find(s => s.email === payerEmail);
+                if (userSplit) {
+                    amountPaidByRequester += userSplit.amount;
+                }
+            });
+
+            // 2. Update expenses with the Batch ID and the specific Split Amount paid
             await Expense.updateMany(
                 { groupId: groupId, isSettled: false },
                 {
                     $set: {
                         isSettled: true,
-                        settledBy: group.paymentStatus.requestedBy,
+                        settledBy: payerEmail,
+                        paidAmount: amountPaidByRequester, // Store the specific split total
                         settlementBatchId: settlementBatchId,
                         settledAt: Date.now()
                     }
@@ -145,14 +159,10 @@ const expenseController = {
             );
 
             await Group.findByIdAndUpdate(groupId, {
-                paymentStatus: {
-                    amount: 0,
-                    isPaid: true,
-                    isPendingApproval: false,
-                    date: Date.now()
-                }
+                paymentStatus: { amount: 0, isPaid: true, isPendingApproval: false, date: Date.now() }
             });
-            response.status(200).json({ message: "Settlement confirmed" });
+
+            response.status(200).json({ message: "Settlement confirmed", amountPaid: amountPaidByRequester });
         } catch (error) {
             response.status(500).json({ message: "Error confirming settlement" });
         }
@@ -183,6 +193,50 @@ const expenseController = {
             response.status(200).json({ message: "Group re-opened successfully" });
         } catch (error) {
             response.status(500).json({ message: "Error re-opening group" });
+        }
+    },
+
+    // src/controllers/expenseController.js
+
+    // src/controllers/expenseController.js
+
+    getDashboardStats: async (request, response) => {
+        try {
+            const userEmail = request.user.email;
+
+            // Fetch latest user data for credits
+            const user = await User.findOne({ email: userEmail });
+
+            // Fetch expenses and POPULATE the groupId to get the name
+            const expenses = await Expense.find({
+                $or: [{ payerEmail: userEmail }, { "splits.email": userEmail }]
+            })
+                .sort({ date: -1 })
+                .limit(5)
+                .populate('groupId', 'name'); // CRITICAL: This links the group name to the activity
+
+            // ... (Your existing totalPaid/totalOwed calculation logic) ...
+            let totalPaid = 0;
+            let totalOwed = 0;
+            expenses.forEach(exp => {
+                if (exp.payerEmail === userEmail && !exp.isSettled) {
+                    const othersSplit = exp.splits.filter(s => s.email !== userEmail).reduce((sum, s) => sum + s.amount, 0);
+                    totalPaid += othersSplit;
+                } else if (exp.payerEmail !== userEmail && !exp.isSettled) {
+                    const mySplit = exp.splits.find(s => s.email === userEmail);
+                    if (mySplit) totalOwed += mySplit.amount;
+                }
+            });
+
+            response.status(200).json({
+                totalPaid,
+                totalOwed,
+                credits: user.credits,
+                recentActivity: expenses // Send the populated expenses
+            });
+        } catch (error) {
+            console.error("Dashboard Stats Error:", error);
+            response.status(500).json({ message: "Error calculating stats" });
         }
     }
 };

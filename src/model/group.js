@@ -22,7 +22,8 @@ const groupSchema = new mongoose.Schema({
         isPendingApproval: { type: Boolean, default: false },
         // NEW: Stores the email of the user who requested the settlement
         requestedBy: { type: String, default: null }
-    }
+    },
+    budgetGoal: { type: Number, default: 0 }
 });
 
 module.exports = mongoose.model('Group', groupSchema);
