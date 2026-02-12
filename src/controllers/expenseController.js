@@ -16,11 +16,12 @@ const expenseController = {
                 (typeof m === 'string' ? m : m.email) === userEmail
             );
 
-            const userRole = typeof member === 'object' ? member.role : 'viewer';
+            const userRole = typeof member === 'object' ? member.role?.toLowerCase() : 'viewer';
 
             const canAddExpense =
                 userRole === 'admin' ||
                 userRole === 'manager' ||
+                userRole === 'treasurer' ||
                 group.adminEmail === userEmail;
 
             if (!canAddExpense) {
@@ -126,19 +127,81 @@ const expenseController = {
         }
     },
 
+    // src/controllers/expenseController.js
+
     requestSettlement: async (request, response) => {
         try {
             const { groupId } = request.body;
-            const requesterEmail = request.user.email;
+            // Normalize the email to lowercase for consistent matching
+            const requesterEmail = request.user.email.toLowerCase();
 
-            await Group.findByIdAndUpdate(groupId, {
-                'paymentStatus.isPendingApproval': true,
-                'paymentStatus.requestedBy': requesterEmail
+            // Use a case-insensitive regex to find the member in the array
+            const group = await Group.findOneAndUpdate(
+                {
+                    _id: groupId,
+                    "members.email": { $regex: new RegExp(`^${requesterEmail}$`, "i") }
+                },
+                {
+                    $set: { "members.$.settlementStatus": "requested" }
+                },
+                { new: true }
+            );
+
+            if (!group) {
+                return response.status(404).json({ message: "Member not found in this group" });
+            }
+
+            response.status(200).json({ message: "Settlement request sent!" });
+        } catch (error) {
+            console.error("Request Error:", error);
+            response.status(500).json({ message: "Internal server error" });
+        }
+    },
+
+    approveMemberSettlement: async (request, response) => {
+        try {
+            const { groupId, memberEmail } = request.body; // memberEmail is the person who paid
+            const userEmail = request.user.email; // Person clicking 'Confirm'
+
+            const group = await Group.findById(groupId);
+            if (!group) return response.status(404).json({ message: "Group not found" });
+
+            // 1. Calculate real-time balances to see who is getting money
+            const expenses = await Expense.find({ groupId, isSettled: false });
+            let emailBalances = {};
+            expenses.forEach(expense => {
+                if (!emailBalances[expense.payerEmail]) emailBalances[expense.payerEmail] = 0;
+                emailBalances[expense.payerEmail] += expense.amount;
+                expense.splits.forEach(split => {
+                    if (!emailBalances[split.email]) emailBalances[split.email] = 0;
+                    emailBalances[split.email] -= split.amount;
+                });
             });
 
-            response.status(200).json({ message: "Settlement request sent to Admin" });
+            // 2. CHECK: Is the person confirming actually OWED money?
+            const isOwedMoney = emailBalances[userEmail] > 0;
+            const isOwner = group.adminEmail === userEmail;
+
+            if (!isOwedMoney && !isOwner) {
+                return response.status(403).json({
+                    message: "Access Denied: Only members receiving funds can confirm this payment."
+                });
+            }
+
+            // 3. Prevent self-confirmation
+            if (memberEmail === userEmail && !isOwner) {
+                return response.status(400).json({ message: "You cannot verify your own payment." });
+            }
+
+            await Group.updateOne(
+                { _id: groupId, "members.email": memberEmail },
+                { $set: { "members.$.settlementStatus": "confirmed" } }
+            );
+
+            response.status(200).json({ message: `Payment verified for ${memberEmail}` });
         } catch (error) {
-            response.status(500).json({ message: "Error requesting settlement" });
+            console.error("Approve Member Error:", error);
+            response.status(500).json({ message: "Error approving settlement" });
         }
     },
 
@@ -151,38 +214,24 @@ const expenseController = {
             if (!group) return response.status(404).json({ message: "Group not found" });
 
             const member = group.members.find(m => m.email === userEmail);
-
-            const hasManagerRights =
+            const hasAdminRights =
                 member?.role?.toLowerCase() === 'admin' ||
-                member?.role?.toLowerCase() === 'manager' ||
                 group.adminEmail?.toLowerCase() === userEmail?.toLowerCase();
 
-            if (!hasManagerRights) {
+            if (!hasAdminRights) {
                 return response.status(403).json({
-                    message: "Access Denied: You do not have the required permissions to confirm settlements."
+                    message: "Access Denied: Only Admins can perform the final Group Closure."
                 });
             }
 
             const settlementBatchId = new mongoose.Types.ObjectId();
-            const payerEmail = group.paymentStatus.requestedBy;
-
-            const expensesToSettle = await Expense.find({ groupId: groupId, isSettled: false });
-
-            let amountPaidByRequester = 0;
-            expensesToSettle.forEach(exp => {
-                const userSplit = exp.splits.find(s => s.email === payerEmail);
-                if (userSplit) {
-                    amountPaidByRequester += userSplit.amount;
-                }
-            });
 
             await Expense.updateMany(
                 { groupId: groupId, isSettled: false },
                 {
                     $set: {
                         isSettled: true,
-                        settledBy: payerEmail,
-                        paidAmount: amountPaidByRequester,
+                        settledBy: userEmail,
                         settlementBatchId: settlementBatchId,
                         settledAt: Date.now()
                     }
@@ -195,14 +244,12 @@ const expenseController = {
                     isPaid: true,
                     isPendingApproval: false,
                     date: Date.now(),
-                    requestedBy: payerEmail
-                }
+                    requestedBy: null
+                },
+                $set: { "members.$[].settlementStatus": "none" }
             });
 
-            response.status(200).json({
-                message: "Settlement confirmed",
-                amountPaid: amountPaidByRequester
-            });
+            response.status(200).json({ message: "Group closed and all expenses settled." });
         } catch (error) {
             console.error("Confirm Settlement Error:", error);
             response.status(500).json({ message: "Error confirming settlement" });
@@ -218,15 +265,14 @@ const expenseController = {
             if (!group) return response.status(404).json({ message: "Group not found" });
 
             const member = group.members.find(m => m.email === userEmail);
-
             const hasManagerRights =
-                member?.role === 'admin' ||
-                member?.role === 'manager' ||
+                member?.role?.toLowerCase() === 'admin' ||
+                member?.role?.toLowerCase() === 'manager' ||
                 group.adminEmail === userEmail;
 
             if (!hasManagerRights) {
                 return response.status(403).json({
-                    message: "Access Denied: You do not have the required permissions to re-open groups."
+                    message: "Access Denied: Only Admins or Managers can re-open groups."
                 });
             }
 
@@ -255,9 +301,7 @@ const expenseController = {
     getDashboardStats: async (request, response) => {
         try {
             const userEmail = request.user.email;
-
             const user = await User.findOne({ email: userEmail });
-
             const expenses = await Expense.find({
                 $or: [{ payerEmail: userEmail }, { "splits.email": userEmail }]
             })

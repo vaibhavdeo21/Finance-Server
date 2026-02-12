@@ -14,6 +14,8 @@ router.post('/add', expenseController.addExpense);
 router.post('/reopen', expenseController.reopenGroup);
 router.post('/request-settle', expenseController.requestSettlement);
 router.post('/confirm-settle', expenseController.confirmSettlement);
+router.post('/approve-member', expenseController.approveMemberSettlement);
+router.post('/request-settle', authMiddleware.protect, expenseController.requestSettlement);
 
 // KEPT: Simple auth for viewing
 router.get('/:groupId', expenseController.getGroupExpenses);
