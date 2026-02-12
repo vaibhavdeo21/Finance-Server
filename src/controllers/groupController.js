@@ -90,25 +90,30 @@ const groupController = {
         try {
             const { groupId } = request.params;
             const userId = request.user._id;
+            const userEmail = request.user.email;
 
             const group = await Group.findById(groupId);
+            if (!group) return response.status(404).json({ message: "Group not found" });
 
-            if (!group) {
-                return response.status(404).json({ message: "Group not found" });
+            // UPDATED: Only Owner or 'admin' role can delete. 'manager' is excluded.
+            const currentUserRole = group.members.find(
+                m => m.email?.toLowerCase() === userEmail?.toLowerCase()
+            )?.role?.toLowerCase();
+
+            const isAuthorized =
+                group.adminId.toString() === userId.toString() ||
+                currentUserRole === 'admin';
+
+            if (!isAuthorized) {
+                return response.status(403).json({
+                    message: "Unauthorized: Only the Owner or an Admin can delete this group."
+                });
             }
 
-            // Authorization Check: Only the primary Admin (Owner) can delete the entire group
-            if (group.adminId.toString() !== userId.toString()) {
-                return response.status(403).json({ message: "Only the Group Owner can delete this group" });
-            }
-
-            // 1. Delete all expenses associated with this group first
             await Expense.deleteMany({ groupId: groupId });
-
-            // 2. Delete the group itself
             await Group.findByIdAndDelete(groupId);
 
-            response.status(200).json({ message: "Group and all associated expenses deleted successfully" });
+            response.status(200).json({ message: "Group deleted successfully" });
         } catch (error) {
             console.error("Delete Group Error:", error);
             response.status(500).json({ message: "Error deleting group" });
@@ -147,19 +152,22 @@ const groupController = {
         }
     },
 
-    // src/controllers/groupController.js
-
     updateMemberRole: async (request, response) => {
         try {
             const { groupId } = request.params;
             const { email, role } = request.body;
             const userId = request.user._id;
+            const userEmail = request.user.email;
 
             const group = await Group.findById(groupId);
             if (!group) return response.status(404).json({ message: "Group not found" });
 
-            if (group.adminId.toString() !== userId.toString()) {
-                return response.status(403).json({ message: "Unauthorized" });
+            // UPDATED: Only Owner or existing Admins can promote/demote others
+            const currentUserRole = group.members.find(m => m.email?.toLowerCase() === userEmail?.toLowerCase())?.role;
+            const isAuthorized = group.adminId.toString() === userId.toString() || currentUserRole?.toLowerCase() === 'admin';
+
+            if (!isAuthorized) {
+                return response.status(403).json({ message: "Unauthorized: Only Admins can manage roles" });
             }
 
             // 1. Remove the user if they exist as a string OR an object
@@ -199,8 +207,8 @@ const groupController = {
             if (!group) return response.status(404).json({ message: "Group not found" });
 
             // Authorization Check: Admins or Managers can remove members
-            const currentUser = group.members.find(m => m.email === userEmail);
-            const isAuthorized = group.adminId.toString() === userId.toString() || currentUser?.role === 'manager';
+            const currentUserRole = group.members.find(m => m.email?.toLowerCase() === userEmail?.toLowerCase())?.role;
+            const isAuthorized = group.adminId.toString() === userId.toString() || currentUserRole?.toLowerCase() === 'admin';
 
             if (!isAuthorized) {
                 return response.status(403).json({ message: "Unauthorized: Only admins or managers can remove members." });
@@ -306,7 +314,7 @@ const groupController = {
             const group = await Group.findById(groupId);
             if (!group) return response.status(404).json({ message: "Group not found" });
 
-            // 2. Real-time Role Check: Admin or Manager allowed
+            // Real-time Role Check: Admin or Manager allowed
             const member = group.members.find(m => m.email === userEmail);
             const hasPermission =
                 member?.role === 'admin' ||
