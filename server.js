@@ -37,7 +37,6 @@ app.use((req, res, next) => {
 app.use(cookieParser());
 
 app.use('/auth', authRoutes);
-app.use('/groups', groupRoutes);
 app.use('/users', rbacRoutes);
 app.use('/payments', paymentsRoutes);
 app.use('/profile', profileRoutes);
