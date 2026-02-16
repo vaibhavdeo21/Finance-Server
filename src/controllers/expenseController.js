@@ -151,6 +151,7 @@ const expenseController = {
                 return response.status(404).json({ message: "Member not found in this group" });
             }
 
+            response.status(200).json({ message: "Settlement request sent!" });
         } catch (error) {
             console.error("Request Error:", error);
             response.status(500).json({ message: "Internal server error" });
