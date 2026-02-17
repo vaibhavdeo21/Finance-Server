@@ -71,11 +71,11 @@ const usersController = {
             const users = await Users.find({});
             return response.status(200).json({ users });
         } catch (error) {
-            return response.status(500).json({ message: "Internal server error" });
         }
     },
 
     // NEW: Function to delete a user
+    
     deleteUser: async (request, response) => {
         try {
             const { id } = request.params;
