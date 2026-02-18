@@ -13,6 +13,7 @@ const PAISA_TO_CREDIT_MAPPING = {
 // NEW: Plan IDs for Subscriptions
 const PLAN_IDS = {
     UNLIMITED_MONTHLY: {
+        id: process.env.RAZORPAY_MONTHLY_PLAN_ID,
         name: 'MergeMoney Unlimited Monthly',
         totalBillingCycleCount: 12
     },
