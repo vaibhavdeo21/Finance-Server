@@ -12,6 +12,7 @@ const rbacDao = {
     },
 
     update: async (userId, name, role) => {
+        return await User.findByIdAndUpdate(
             userId,
             { name, role },
             { new: true }
